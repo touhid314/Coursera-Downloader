@@ -1,0 +1,10 @@
+varname 
+browser-cookie3
+beautifulsoup4 
+requests 
+six 
+urllib3 
+pyasn1 
+keyring 
+configargparse 
+attrs==18.1.0
