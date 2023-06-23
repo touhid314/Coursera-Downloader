@@ -1,19 +1,4 @@
-#keep everything 32 bit or 64 bit, otherwise things get messed up at some points, program don't work
+change -video-resolution to --video-resolution
+change -path to --path
 
-#for maingui:
-
-pip install varname browser-cookie3
-
-
-#for coursera-dl to run as python progrram, not as a exe file:
-
-pip install beautifulsoup4 requests six urllib3 pyasn1 keyring configargparse attrs==18.1.0
-
-
-#pyinstaller
-
-use python v3.7, otherwise pyinstaller doesn't work, shows error
-
-pip install pyinstaller
-pip uninstall enum34     #this module causes error for pyinstaller installation
-
+if path has space in it, the forked module is throwing error. try to fix.

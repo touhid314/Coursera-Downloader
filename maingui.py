@@ -31,7 +31,7 @@ class main:
 
         # @
         self.inputvardict = {'u': u, 'p': p,
-                             'cauth': cauth, 'classname': classname,
+                             'ca': cauth, 'classname': classname,
                              'path': path, 'video_resolution': vidres,
                              'sl': sllangs}
 
@@ -159,7 +159,7 @@ class main:
 
     def downloadBtnHandler(self):
         # load cauth code automatically and store it in inputvardict
-        self.inputvardict['cauth'].set(general.loadcauth('coursera.org'))
+        self.inputvardict['ca'].set(general.loadcauth('coursera.org'))
 
         # make argdict from inputvarlist
         self.argdict = {}
@@ -190,7 +190,7 @@ class main:
         self.saveargdic()
 
         # create command from argumentdict
-        cmd = ["coursera_dl.exe"]
+        cmd = []
         cmd.append('--download-quizzes')
         cmd.append('--download-notebooks')
         cmd.append('--disable-url-skipping')
@@ -203,11 +203,11 @@ class main:
             cmd.append("--resume")
 
         for item in self.argdict.items():
-            # convert cauth to --cauth and u to -u
+            # convert ca to -cauth and u to -u
             if len(item[0]) <= 2:
                 flag = '-' + item[0]
             else:
-                flag = '--' + item[0]
+                flag = '-' + item[0]
 
             # convert video_resolution to video-resoltion
             flag = flag.replace('_', '-')
@@ -218,13 +218,14 @@ class main:
                 cmd.append(flag)
             cmd.append(item[1])
 
-        # run cmd
+        # # run cmd
+        cmd = ' '.join(cmd)
         print(cmd)
 
-        # subprocess.call(cmd)
-        t = threading.Thread(target=self.subprocesscall, args=[cmd])
-        t.daemon = True
-        t.start()
+        # # subprocess.call(cmd)
+        # t = threading.Thread(target=self.subprocesscall, args=[cmd])
+        # t.daemon = True
+        # t.start()
 
     def resumeBtnHandler(self):
         self.shouldResume = True
