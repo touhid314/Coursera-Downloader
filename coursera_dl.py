@@ -254,15 +254,14 @@ def download_class(session, args, class_name):
     return download_on_demand_class(session, args, class_name)
 
 
-def main():
+def main_f(cmd):
     """
     Main entry point for execution as a program (instead of as a module).
     """
-    print("\n \n \n")
-    print("hello world")
-    print("\n \n \n")
-
-    args = parse_args()
+    # cmd is the usual command line instructions
+    # ==================
+    args = parse_args(cmd)
+    # ===================
     logging.info('coursera_dl version %s', __version__)
     completed_classes = []
     classes_with_errors = []
@@ -324,7 +323,3 @@ def main():
         for class_name in classes_with_errors:
             logging.info('%s (https://www.coursera.org/learn/%s)',
                          class_name, class_name)
-
-
-if __name__ == '__main__':
-    main()

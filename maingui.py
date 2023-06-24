@@ -5,8 +5,9 @@ import subprocess
 import os
 import pickle
 from varname import nameof
-import threading
 import general
+from coursera_dl import main_f
+import webbrowser
 
 
 class main:
@@ -18,9 +19,6 @@ class main:
         self.window.resizable(False, False)
 
         # @variables
-
-        u = StringVar()
-        p = StringVar()
         cauth = StringVar()
         classname = StringVar()
         path = StringVar()
@@ -30,8 +28,7 @@ class main:
         self.shouldResume = False
 
         # @
-        self.inputvardict = {'u': u, 'p': p,
-                             'ca': cauth, 'classname': classname,
+        self.inputvardict = {'ca': cauth, 'classname': classname,
                              'path': path, 'video_resolution': vidres,
                              'sl': sllangs}
 
@@ -61,27 +58,13 @@ class main:
         infoMsgFrame = Frame(frame1, padx=0, pady=6)
         infoMsgFrame.grid(row=1, column=1, columnspan=2)
 
-        msg = "You must be logged in in coursera.org in Chrome or Firefox.\
+        msg = '''You must be logged in in coursera.org in Chrome or Firefox.\
                 Browser don't have to be opened though.\
-                    \nYou can only download courses that you are enrolled in"
+                    \nYou can only download courses that you are enrolled in\
+                    \n* Make sure that your download path don't include any space.\
+                    \ni.e. "C:\Test User" will generate error. '''
         infoMsg = Message(infoMsgFrame, text=msg, width=400)
         infoMsg.grid(row=1)
-        # infoMsgFrame['text'] = "You must be logged in in coursera.org in Chrome or Firefox.(Browser don't have to be opene though)"
-
-        Label(frame1, text="Coursera Username/Email: ",
-              width=LW, anchor='w').grid(row=2, column=1)
-        emailentry = Entry(
-            frame1, textvariable=self.inputvardict['u'], width=EW)
-        emailentry.grid(row=2, column=2)
-        emailentry.focus_set()
-
-        Label(frame1, text="Coursera Password: ",
-              width=LW, anchor='w').grid(row=3, column=1)
-        Entry(
-            frame1, textvariable=self.inputvardict['p'], show='*', width=EW).grid(row=3, column=2)
-
-        # Label(frame1, text="Cookie Auth Code: ", width=LW, anchor='w').grid(row=3, column = 1)
-        # Entry(frame1, textvariable=self.inputvardict['cauth'], width=EW).grid(row=3, column=2)
 
         # course name row
         Label(frame1,
@@ -89,9 +72,11 @@ class main:
               width=LW,
               anchor='w').grid(row=4, column=1)
 
-        Entry(frame1,
-              textvariable=self.inputvardict['classname'],
-              width=EW).grid(row=4, column=2)
+        name_entry = Entry(frame1,
+                           textvariable=self.inputvardict['classname'],
+                           width=EW)
+        name_entry.grid(row=4, column=2)
+        name_entry.focus_set()
 
         # download folder row
         Label(frame1, text="Download Folder: ", width=LW,
@@ -157,6 +142,18 @@ class main:
                            command=self.resumeBtnHandler)
         resumeBtn.grid(row=11, column=1, sticky='E')
 
+        # website link
+        label = Label(frame1, text="For usage guide go to")
+        link = Label(frame1, text="http://coursera-downloader.rf.gd/",
+                     fg="blue", cursor="hand2")
+        link.bind("<Button-1>", lambda event: open_url())
+
+        frame1.grid_rowconfigure(12, weight=1)
+        frame1.grid_columnconfigure(0, weight=1)
+
+        label.grid(row=12, column=1)
+        link.grid(row=12, column=2)
+
     def downloadBtnHandler(self):
         # load cauth code automatically and store it in inputvardict
         self.inputvardict['ca'].set(general.loadcauth('coursera.org'))
@@ -191,21 +188,12 @@ class main:
 
         # create command from argumentdict
         cmd = []
-        cmd.append('--download-quizzes')
-        cmd.append('--download-notebooks')
-        cmd.append('--disable-url-skipping')
-        cmd.append('--unrestricted-filenames')
-        cmd.append('--combined-section-lectures-nums')
-        cmd.append('--jobs')
-        cmd.append('1')
 
-        if self.shouldResume == True:
-            cmd.append("--resume")
-
+        self.argdict = general.move_to_first(self.argdict, 'ca')
         for item in self.argdict.items():
             # convert ca to -cauth and u to -u
-            if len(item[0]) <= 2:
-                flag = '-' + item[0]
+            if (item[0] == 'video_resolution') or (item[0] == 'path'):
+                flag = '--' + item[0]
             else:
                 flag = '-' + item[0]
 
@@ -218,22 +206,26 @@ class main:
                 cmd.append(flag)
             cmd.append(item[1])
 
+        # append additional commands
+        cmd.append('--download-quizzes')
+        cmd.append('--download-notebooks')
+        cmd.append('--disable-url-skipping')
+        cmd.append('--unrestricted-filenames')
+        cmd.append('--combined-section-lectures-nums')
+        cmd.append('--jobs')
+        cmd.append('1')
+
+        if self.shouldResume == True:
+            cmd.append("--resume")
+
         # # run cmd
         cmd = ' '.join(cmd)
-        print(cmd)
 
-        # # subprocess.call(cmd)
-        # t = threading.Thread(target=self.subprocesscall, args=[cmd])
-        # t.daemon = True
-        # t.start()
+        main_f(cmd)
 
     def resumeBtnHandler(self):
         self.shouldResume = True
         self.downloadBtnHandler()
-
-    def subprocesscall(self, command):
-        # command is a list of the command line commands
-        subprocess.call(command)
 
     def loadargdict(self):
         # dic = {'username':'', 'password':'', 'cauth': '', 'path':''}
@@ -265,7 +257,16 @@ class main:
         f.close()
 
     def getPath(self):
-        self.inputvardict['path'].set(askdirectory())
+        dir = askdirectory()
+        dir = '"{}"'.format(dir)
+        self.inputvardict['path'].set(dir)
+
+# global functions
+
+
+def open_url():
+    url = "http://coursera-downloader.rf.gd/"
+    webbrowser.open(url)
 
 
 main()

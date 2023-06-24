@@ -63,8 +63,17 @@ def loadcauth(domain):
     return cauth
 
 
-# print(loadcauth('coursera.org'))
+def move_to_first(dictionary, key):
+    if key not in dictionary:
+        return dictionary  # Key not found, no changes needed
 
+    value = dictionary[key]
+    # Create a new dictionary with the desired key-value pair as the first item
+    new_dict = {key: value}
 
-# url = r"python"
-# print(urltoclassname(url))
+    for k, v in dictionary.items():
+        if k != key:
+            # Insert the remaining key-value pairs into the new dictionary
+            new_dict[k] = v
+
+    return new_dict

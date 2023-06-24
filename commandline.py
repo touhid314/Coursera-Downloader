@@ -96,6 +96,7 @@ def parse_args(args=None):
 
     group_basic.add_argument(
         '--path',
+        type=str,
         dest='path',
         action='store',
         default='',
@@ -442,11 +443,8 @@ def parse_args(args=None):
 
     # Final parsing of the options
     # ===========================================================
-    # JUST PUT THE DESIRED ARGUMENT HERE
-    args = parser.parse_args(
-        args='''--download-notebooks --disable-url-skipping --unrestricted-filenames --combined-section-lectures-nums --jobs 1 -u a -p a -ca nY8iCjb38b3DCYq16_BtV4T2L3NT1Vj6Wj-0TfRM7fsPlOeGybS1O9sIxvoXP8bLHh2_mv--5ul8rIBF02L2kg.j4vnWlLjJ1fOxNrmqAOVMg.aWBLnpQoBQRGT0uum4hEfADVwocAp53J6WMKzmIGV3xrUnBvTfeGXoYQAAjEPHuYSCDVj-Aij4HOx8RVLD_3zcW5ksSv6Ia4DkZ6X2dLD5-wymfbCHCgqkzY4FOW9Xp6Vgl8TS5HBxsXVa_2oiDq1t3mQ3Q0WHnoHrD212xJwTAieNOZBsdn1Nj2jD_qKRt1IsPzWAwEG921M9GXqafEkmykK23NmJqu25B7dc7MGIW_e-xaxWCCjuIYjjOtLbOCJdhsTc4lkHk4riCFkZARHus1LmqcB7z11ryImxXz2abWFRJT-SW0y0EAgMCQqnEPZk3jTfQfF1hPH6oWSc5FulXcKDnIVwBfmoq9aBdufGntntg9rIQKhgjwe32XiUD2mDwddni5NVr4duKv9CQvHabwZCi4_7k0AetG7UXl2a332TgzEOEgZRpEbshQ2Sv_g-wpSyVLaGf5NtWx10g14A a --path "H:\FFOutput\Screen Record" --video-resolution 720p -sl en''')
+    args = parser.parse_args(args)
     # ============================================================
-    # args = "-ca <cauthcode> --download-notebooks --disable-url-skipping --unrestricted-filenames --combined-section-lectures-nums --jobs 1 "
 
     # Initialize the logging system first so that other functions
     # can use it right away
