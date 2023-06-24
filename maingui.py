@@ -9,6 +9,8 @@ import general
 from coursera_dl import main_f
 import webbrowser
 
+# if download path contains space it will be set to 0 and downlaod wont run
+
 
 class main:
     def __init__(self):
@@ -26,6 +28,7 @@ class main:
         sllangs = StringVar()  # subtitle languages
 
         self.shouldResume = False
+        self.valid_argument = 1
 
         # @
         self.inputvardict = {'ca': cauth, 'classname': classname,
@@ -220,8 +223,8 @@ class main:
 
         # # run cmd
         cmd = ' '.join(cmd)
-
-        main_f(cmd)
+        if self.valid_argument == 1:
+            main_f(cmd)
 
     def resumeBtnHandler(self):
         self.shouldResume = True
@@ -257,8 +260,13 @@ class main:
         f.close()
 
     def getPath(self):
+        self.valid_argument = 1
         dir = askdirectory()
         dir = '"{}"'.format(dir)
+        if ' ' in dir:
+            print('Download path:', dir)
+            print("Your download path contains space in it. Choose a different download path that doesn't have any folder in its path with space in folder name.")
+            self.valid_argument = 0
         self.inputvardict['path'].set(dir)
 
 # global functions
