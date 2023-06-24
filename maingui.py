@@ -224,6 +224,7 @@ class main:
         # # run cmd
         cmd = ' '.join(cmd)
         if self.valid_argument == 1:
+            print(cmd)
             main_f(cmd)
 
     def resumeBtnHandler(self):
@@ -262,7 +263,6 @@ class main:
     def getPath(self):
         self.valid_argument = 1
         dir = askdirectory()
-        dir = '"{}"'.format(dir)
         if ' ' in dir:
             print('Download path:', dir)
             print("Your download path contains space in it. Choose a different download path that doesn't have any folder in its path with space in folder name.")
