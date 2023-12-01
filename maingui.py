@@ -1,25 +1,27 @@
 from tkinter import *
 from tkinter import ttk
 from tkinter.filedialog import askdirectory
-import subprocess
-import os
-import pickle
+import os, pickle, webbrowser, requests
+from PIL import Image, ImageTk
 from varname import nameof
 import general
 from coursera_dl import main_f
-import webbrowser
 
 # if download path contains space it will be set to 0 and downlaod wont run
-
+__version__ = "2.1.0"
 
 class main:
     def __init__(self):
 
         # window
         self.window = Tk()
-        self.window.title("Coursera Downloader")
+        self.window.title("Coursera Full Course Downloader")
         self.window.resizable(False, False)
 
+        icon = Image.open("icon.ico")
+        photo = ImageTk.PhotoImage(icon)
+        self.window.iconphoto(True, photo)
+        
         # @variables
         cauth = StringVar()
         classname = StringVar()
@@ -28,7 +30,6 @@ class main:
         sllangs = StringVar()  # subtitle languages
 
         self.shouldResume = False
-        self.valid_argument = 1
 
         # @
         self.inputvardict = {'ca': cauth, 'classname': classname,
@@ -49,6 +50,14 @@ class main:
         self.window.mainloop()
 
     def loadUI(self):
+        # Menu bar
+        menubar = Menu(self.window)
+        self.window.config(menu=menubar)
+
+        main_menu = Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Menu", menu=main_menu)
+        main_menu.add_command(label="About", command=self.show_about)
+        main_menu.add_command(label="Help", command=self.show_help)
 
         # frame
         frame1 = Frame(self.window)
@@ -62,9 +71,8 @@ class main:
         infoMsgFrame.grid(row=1, column=1, columnspan=2)
 
         msg = '''You must be logged in in coursera.org in Chrome or Firefox.\
-                Browser don't have to be opened though.\
-                    \nYou can only download courses that you are enrolled in\
-                    \n* Make sure that your download path don't include any space.\
+                    \nYou can only download courses that you are enrolled in.\
+                    \n* Make sure that your download path doesn't include any space.\
                     \ni.e. "C:\Test User" will generate error. '''
         infoMsg = Message(infoMsgFrame, text=msg, width=400)
         infoMsg.grid(row=1)
@@ -157,9 +165,82 @@ class main:
         label.grid(row=12, column=1)
         link.grid(row=12, column=2)
 
+    def show_about(self):
+        about_window = Toplevel(self.window)
+        about_window.title("Coursera Full Course Downloader")
+
+        # Set fixed size and disable resizable
+        about_window.geometry("350x150")
+        about_window.resizable(False, False)
+
+        about_text = f"Coursera Full Course Downloader v{__version__}\n\nTouhidul Islam\nDepartment of EEE, BUET\ntouhid3.1416@gmail.com"
+        
+        about_label = Message(about_window, text=about_text, width=300)
+        about_label.pack(padx=0, pady=5)
+
+        # OK button to close the About window
+        ok_button = Button(about_window, text="OK", command=about_window.destroy, width=5, height=3)
+        ok_button.pack(pady=10)
+
+
+    def show_help(self):
+        help_window = Toplevel(self.window)
+        help_window.title("Help - Coursera Full Course Downloader")
+        help_window.geometry("500x300")
+        help_window.resizable(False, False)
+
+        help_text = '''USING THE PROGRAM:
+Using the program is very easy. Just enter the necessary things and hit download. Your download will start in a command prompt window. You can see the download progress in the command prompt window. It will take some moments for the processing to finish, and download to start.
+
+Use CTRL+V to paste URL.
+
+STOP DOWNLOAD:
+Press CTRL+C on the command prompt window.
+
+RESUME DOWNLOAD:
+If you want to RESUME the download later on, just provide the same information and download folder as before, and click on the Resume button instead of download. Your download will be resumed from previous position.
+
+IF THE DOWNLOAD SCREEN STALLS:
+If the download screen does not change and does not show update for some time, then click on the command prompt window and press any button, your download should resume.
+
+You can not download an entire specialization. For specialization enter url of the course within it.
+
+FOUND A BUG? feel free to email at touhid3.1416@gmail.com
+        '''
+
+        help_text_widget = Text(help_window, wrap="word", height=16, width=68)
+        help_text_widget.insert("1.0", help_text)
+        help_text_widget.config(state="disabled")  # Make the Text widget read-only
+        custom_font = ("Arial", 10)  # Replace with your preferred font and size
+        help_text_widget.config(font=custom_font)
+
+
+        # Create a Scrollbar for vertical scrolling
+        scrollbar = Scrollbar(help_window, command=help_text_widget.yview)
+
+        # Pack the Text and Scrollbar widgets
+        help_text_widget.pack(side="left", padx=5, pady=5)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Configure the Text widget to use the scrollbar
+        help_text_widget.config(yscrollcommand=scrollbar.set)
+        
+
     def downloadBtnHandler(self):
         # load cauth code automatically and store it in inputvardict
-        self.inputvardict['ca'].set(general.loadcauth('coursera.org'))
+        cauth =  general.loadcauth('coursera.org')   
+        if(cauth == -1):
+            print(">> could not load authentication from firefox or chrome. make sure you are logged in on coursera.org in chrome or firefox.\n")
+            return
+        
+        self.inputvardict['ca'].set(cauth)
+        
+        # check if path is valid
+        if self.inputvardict['path'].get() == '':
+            print('>> NO FOLDER SPECIFIED. PLEASE SELECT A FOLDER\n')
+            return
+        else:
+            print(">> DOWNLOADING TO: ", self.inputvardict['path'].get(), '\n')
 
         # make argdict from inputvarlist
         self.argdict = {}
@@ -171,6 +252,9 @@ class main:
             if key == 'classname':
                 courseurl = self.inputvardict['classname'].get()
                 cname = general.urltoclassname(courseurl)
+                if cname == "":
+                    print(">> INVALID COURSE NAME/ HOME PAGE URL\n")
+                    return
                 self.argdict[key] = cname
                 continue
 
@@ -200,7 +284,7 @@ class main:
             else:
                 flag = '-' + item[0]
 
-            # convert video_resolution to video-resoltion
+            # convert video_resolution to video-resolution
             flag = flag.replace('_', '-')
 
             # now append to cmd
@@ -223,9 +307,20 @@ class main:
 
         # # run cmd
         cmd = ' '.join(cmd)
-        if self.valid_argument == 1:
-            print(cmd)
+
+        # print(cmd)
+        print(">> INITIALIZING DOWNLOAD... PRESS CTRL+C TO STOP DOWNLOAD\n")
+        try:
             main_f(cmd)
+        except KeyboardInterrupt:
+            print("\n>> DOWNLOAD STOPPED, YOU CAN RESUME YOUR DOWNLOAD LATER\n")
+        except requests.exceptions.HTTPError as e:
+            print(">> HTTP ERROR: ", e, "\n")
+            print(">> MAKE SURE YOU ARE LOGGED IN ON coursera.org ON CHROME OR FIREFOX AND YOU ARE ENROLLED INTO THE COURSE\n")
+        except requests.exceptions.SSLError as e:
+            print(">> SSL ERROR: ", e, "\n")
+        except:
+            print(">> SOMETHING WENT WRONG, PLEASE TRY AGAIN\n")
 
     def resumeBtnHandler(self):
         self.shouldResume = True
@@ -261,12 +356,12 @@ class main:
         f.close()
 
     def getPath(self):
-        self.valid_argument = 1
         dir = askdirectory()
         if ' ' in dir:
-            print('Download path:', dir)
-            print("Your download path contains space in it. Choose a different download path that doesn't have any folder in its path with space in folder name.")
-            self.valid_argument = 0
+            print('>> DOWNLOAD PATH:', dir)
+            print(">> YOUR DOWNLOAD PATH CONTAINS SPACE IN IT. CHOOSE A DIFFERENT DOWNLOAD PATH THAT DOESN'T HAVE ANY FOLDER IN ITS PATH WITH SPACE IN FOLDER NAME.\n")
+            dir = ''
+                    
         self.inputvardict['path'].set(dir)
 
 # global functions

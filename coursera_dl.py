@@ -74,8 +74,6 @@ from network import get_page, get_page_and_url
 from commandline import parse_args
 from extractors import CourseraExtractor
 
-__version__ = '0.12.0b0'
-
 
 # URL containing information about outdated modules
 _SEE_URL = " See https://github.com/coursera-dl/coursera/issues/139"
@@ -262,7 +260,7 @@ def main_f(cmd):
     # ==================
     args = parse_args(cmd)
     # ===================
-    logging.info('coursera_dl version %s', __version__)
+    logging.info('>> COURSERA FULL COURSE DOWNLOADER\n')
     completed_classes = []
     classes_with_errors = []
 
@@ -290,18 +288,26 @@ def main_f(cmd):
             if error_occurred:
                 classes_with_errors.append(class_name)
         except requests.exceptions.HTTPError as e:
-            logging.error('HTTPError %s', e)
-            if is_debug_run():
-                logging.exception('HTTPError %s', e)
+            # logging.error('HTTPError %s', e)
+            # if is_debug_run():
+            #     logging.exception('HTTPError %s', e)
+            
+            raise # raise error
+            
         except requests.exceptions.SSLError as e:
-            logging.error('SSLError %s', e)
-            print_ssl_error_message(e)
+            # logging.error('SSLError %s', e)
+            # print_ssl_error_message(e)
             if is_debug_run():
                 raise
+            
+            raise
+
         except ClassNotFound as e:
             logging.error('Could not find class: %s', e)
+            raise
         except AuthenticationFailed as e:
             logging.error('Could not authenticate: %s', e)
+            raise
 
         if class_index + 1 != len(args.class_names):
             logging.info('Sleeping for %d seconds before downloading next course. '

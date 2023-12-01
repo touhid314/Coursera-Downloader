@@ -8,7 +8,8 @@ import sys
 import logging
 import configargparse as argparse
 
-__version__ = '0.12.0b0'
+__courseradlversion__ = '0.12.0b0'
+# from maingui import __version__
 
 from credentials import get_credentials, CredentialsError
 
@@ -459,8 +460,9 @@ def parse_args(args=None):
                             format='%(message)s')
 
     if class_name_arg_required(args) and not args.class_names:
-        parser.print_usage()
-        logging.error('You must supply at least one class name')
+        # parser.print_usage()
+        # logging.error('>> PLEASE FILL IN ALL INFO\n')
+        print(">> PLEASE FILL IN ALL INFO\n")
         sys.exit(1)
 
     # show version?
@@ -468,7 +470,7 @@ def parse_args(args=None):
         # we use print (not logging) function because version may be used
         # by some external script while logging may output excessive
         # information
-        print(__version__)
+        print(__courseradlversion__)
         sys.exit(0)
 
     # turn list of strings into list

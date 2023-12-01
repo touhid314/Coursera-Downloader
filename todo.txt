@@ -1,4 +1,3 @@
-change -video-resolution to --video-resolution
-change -path to --path
+* if, download folder is not specified, usage guide is being shown on the cmd prompt. but if name is unspecified, it's not. fix it so that, if download folder is unspecified, usage guide is not shown
 
-if path has space in it, the forked module is throwing error. try to fix.
+* if path has space in it, the forked module is throwing error. try to fix.

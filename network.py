@@ -50,9 +50,9 @@ def get_reply(session, url, post=False, data=None, headers=None, quiet=False):
     try:
         reply.raise_for_status()
     except requests.exceptions.HTTPError as e:
-        if not quiet:
-            logging.error("Error %s getting page %s", e, url)
-            logging.error("The server replied: %s", reply.text)
+        # if not quiet:
+        #     logging.error("Error %s getting page %s", e, url)
+        #     logging.error("The server replied: %s", reply.text)
         raise
 
     return reply
