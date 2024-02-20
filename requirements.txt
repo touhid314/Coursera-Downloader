@@ -8,3 +8,5 @@ configargparse>=0.12.0
 attrs==18.1.0
 varname 
 browser-cookie3
+pillow
+backoff
