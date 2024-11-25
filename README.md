@@ -1,6 +1,6 @@
 # Coursera-Downloader
 
-a gui on top of the coursera-dl script for easy downloading of coursera courses
+A GUI for easy downloading of coursera courses
 
 Site for downloading the windows app: http://coursera-downloader.rf.gd/
 
