@@ -16,6 +16,7 @@ Download videos, assignments, notes and all other resources of a course saved we
 # Usage Guide
 Check the site for updated info: http://coursera-downloader.rf.gd/
 
+# License
 Shield: [![CC BY-NC 4.0][cc-by-nc-shield]][cc-by-nc]
 
 This work is licensed under a
