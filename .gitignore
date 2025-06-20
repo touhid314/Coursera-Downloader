@@ -8,9 +8,4 @@ TODO.txt
 
 # ignore folder
 win64_build/
-
-/notes.txt
-/TODO.txt 
-
-# ignore folder
-wind64_build/
+__pycache__/

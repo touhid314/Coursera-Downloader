@@ -10,3 +10,8 @@ v2.1.0 - solved the bug of permission error for chrome and edge.
         unsolved problem:  
         * space in download path is still a problem  
         * add permission error handling for data.bin reading and writing
+
+v2.1.1 - 
+        * organized the repo, deleted the old code
+        * fixed chinese subtitle code to zh-CN
+        

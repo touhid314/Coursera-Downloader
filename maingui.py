@@ -18,7 +18,7 @@ class main:
         self.window.title("Coursera Full Course Downloader")
         self.window.resizable(False, False)
 
-        icon = Image.open("icon.ico")
+        icon = Image.open("icon/icon.ico")
         photo = ImageTk.PhotoImage(icon)
         self.window.iconphoto(True, photo)
         
@@ -371,5 +371,5 @@ def open_url():
     url = "http://coursera-downloader.rf.gd/"
     webbrowser.open(url)
 
-
-main()
+if __name__ == "__main__":
+    main()
