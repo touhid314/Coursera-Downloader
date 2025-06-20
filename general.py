@@ -4,7 +4,7 @@ import browser_cookie3 as bc
 # this dictionary holds language name as key and corresponding ISO language code as value
 LANG_NAME_TO_CODE_MAPPING = {'Arabic': 'ar', 'Afrikaans': 'af',
                              'Bangla': 'bn', 'Burmese': 'my',
-                             'Chinese (Simplified)': 'zh-Hans', 'Chinese (Traditional)': 'zh-Hant', 'Chinese': 'zh',
+                             'Chinese (Simplified)': 'zh-Hans', 'Chinese (Traditional)': 'zh-Hant', 'Chinese': 'zh-CN',
                              'Dutch': 'nl',
                              'English': 'en',
                              'French': 'fr', 'Finnish': 'fi',
