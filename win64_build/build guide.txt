@@ -1,0 +1,12 @@
+pyinstaller --icon=icon.ico maingui.py
+
+after build: 
+change the file name, otherwise the icon doesn't come up
+copy the icon.ico file to the dist folder, otherwise crashes.
+
+make installer with installforge:
+* use the saved file as template.
+* change the folder location, most probably only having the dist folder is enough
+* version
+* shortcut location
+* run as admin registry value.

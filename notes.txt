@@ -5,7 +5,7 @@
 pip install varname browser-cookie3
 
 
-#for coursera-dl to run as python progrram, not as a exe file:
+#for coursera-dl to run as python program, not as a exe file:
 
 pip install beautifulsoup4 requests six urllib3 pyasn1 keyring configargparse attrs==18.1.0
 

@@ -1,0 +1,8 @@
+*.bin
+*.json
+
+/notes.txt
+/TODO.txt 
+
+# ignore folder
+wind64_build/
