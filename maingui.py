@@ -106,6 +106,7 @@ class MainWindow(QMainWindow):
         # Download folder
         grid.addWidget(QLabel("Download Folder:"), 1, 0)
         self.path_btn = QPushButton("Select Folder")
+        self.path_btn.setFixedSize(100, 20)
         self.path_btn.clicked.connect(self.getPath)
         grid.addWidget(self.path_btn, 1, 1)
         self.path_label = QLabel(self.inputvardict['path'])
@@ -135,6 +136,7 @@ class MainWindow(QMainWindow):
         grid.addWidget(QLabel("Subtitle Language:"), 4, 0)
         self.sl_combo = QComboBox()
         self.sl_combo.addItems(sorted(self.sllangschoices.keys()))
+        self.sl_combo.setFixedSize(150, 20)
         self.sl_combo.setCurrentText(self.inputvardict['sl'])
         grid.addWidget(self.sl_combo, 4, 1)
 
@@ -212,7 +214,7 @@ class MainWindow(QMainWindow):
         # load cauth code automatically and store it in inputvardict
         browser = self.browser_combo.currentText()
         cauth = general.loadcauth('coursera.org', browser)
-        if cauth == -1:
+        if cauth == "":
             QMessageBox.warning(self, "Error", "Could not load authentication from Firefox or Chrome. Make sure you are logged in on coursera.org in Chrome or Firefox.")
             return
         self.inputvardict['ca'] = cauth
