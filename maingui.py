@@ -12,6 +12,7 @@ from PyQt5.QtCore import Qt
 
 import general
 from coursera_dl import main_f
+from PyQt5.QtGui import QFontDatabase
 
 __version__ = "2.1.0"
 
@@ -19,7 +20,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Coursera Full Course Downloader")
-        self.setFixedSize(600, 300)
+        self.setMinimumSize(500, 300)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowMaximizeButtonHint) # no maximize button
         self.setWindowIcon(QIcon("icon/icon.ico"))
 
         self.shouldResume = False
@@ -33,6 +35,7 @@ class MainWindow(QMainWindow):
             'sl': 'English'
         }
         self.sllangschoices = general.LANG_NAME_TO_CODE_MAPPING
+        self.allowed_browesers = general.ALLOWED_BROWSERS
 
         self.argdict = self.loadargdict()
         for key in self.inputvardict:
@@ -52,6 +55,15 @@ class MainWindow(QMainWindow):
         menu.addAction(about_action)
         menu.addAction(help_action)
 
+        # # Load Roboto font
+        # font_path = os.path.join("font", "Roboto-Regular.ttf")
+        # font_id = QFontDatabase.addApplicationFont(font_path)
+        # if font_id != -1:
+        #     family = QFontDatabase.applicationFontFamilies(font_id)[0]
+        #     app_font = QFont(family, 9)
+        #     QApplication.setFont(app_font)
+
+
         # Central widget
         central = QWidget()
         self.setCentralWidget(central)
@@ -62,15 +74,24 @@ class MainWindow(QMainWindow):
         layout.setSpacing(5) # Reduced spacing between widgets
         layout.setContentsMargins(10, 10, 10, 10) # Sets margins for a layout
 
-
         # Info message
         info = QLabel(
-            "You must be logged in in coursera.org in Chrome or Firefox.\n"
-            "You can only download courses that you are enrolled in.\n"
+            "<b>You must be logged in on coursera.org in a browser.</b><br>You can only download courses that you are enrolled in.\n"
         )
         info.setWordWrap(True)
         info.setAlignment(Qt.AlignCenter)
         layout.addWidget(info)
+
+        # Browser selection widget (separate)
+        browser_group = QGroupBox()
+        browser_layout = QHBoxLayout()
+        browser_group.setLayout(browser_layout)
+        browser_label = QLabel("<i><b>Select browser where you are logged in on coursera.org:</b></i>")
+        self.browser_combo = QComboBox()
+        self.browser_combo.addItems(self.allowed_browesers)
+        browser_layout.addWidget(browser_label)
+        browser_layout.addWidget(self.browser_combo)
+        layout.addWidget(browser_group)
 
         grid = QGridLayout()
         layout.addLayout(grid)
@@ -117,53 +138,80 @@ class MainWindow(QMainWindow):
         self.sl_combo.setCurrentText(self.inputvardict['sl'])
         grid.addWidget(self.sl_combo, 4, 1)
 
-        # Download/Resume buttons
+                # Download/Resume buttons
         btn_layout = QHBoxLayout()
-        self.download_btn = QPushButton("Download")
-        self.download_btn.clicked.connect(self.downloadBtnHandler)
+
+        # Spacer to push buttons to the right
+        btn_layout.addStretch(1)
+
+        # Resume Button
         self.resume_btn = QPushButton("Resume")
+        self.resume_btn.setFixedSize(100, 30)
         self.resume_btn.clicked.connect(self.resumeBtnHandler)
         btn_layout.addWidget(self.resume_btn)
+
+        # Download Button
+        self.download_btn = QPushButton("Download")
+        self.download_btn.setFixedSize(100, 30)
+        self.download_btn.clicked.connect(self.downloadBtnHandler)
         btn_layout.addWidget(self.download_btn)
+
         layout.addLayout(btn_layout)
 
-        # Add a stretch to push content upwards
+        # Add a vertical stretch to push everything upwards
         layout.addStretch(1)
 
         # Website link
-        link_label = QLabel('For usage guide go to <a href="https://coursera-downloader.rf.gd/#guide-block">http://coursera-downloader.rf.gd/</a>')
+        link_label = QLabel(
+            '<a href="https://coursera-downloader.rf.gd/" style="color:#0D47A1;">http://coursera-downloader.rf.gd/</a>'
+        )
         link_label.setOpenExternalLinks(True)
         layout.addWidget(link_label)
 
     def show_about(self):
-        QMessageBox.information(
-            self, "Coursera Full Course Downloader",
-            f"Coursera Full Course Downloader v{__version__}\n\nTouhidul Islam\nDepartment of EEE, BUET\ntouhid3.1416@gmail.com"
-        )
+        about_text = """
+    <b>Coursera Full Course Downloader</b><br>
+    Version: {version}<br><br>
+    Developed by: Touhidul Islam<br>
+    Department of EEE, BUET<br>
+    Email: <u>touhid3.1416@gmail.com</u>
+    """.format(version=__version__)
 
-    def show_help(self):
-        help_text = (
-            "USING THE PROGRAM:\n"
-            "Using the program is very easy. Just enter the necessary things and hit download. Your download will start in a command prompt window. You can see the download progress in the command prompt window. It will take some moments for the processing to finish, and download to start.\n\n"
-            "Use CTRL+V to paste URL.\n\n"
-            "STOP DOWNLOAD:\n"
-            "Press CTRL+C on the command prompt window.\n\n"
-            "RESUME DOWNLOAD:\n"
-            "If you want to RESUME the download later on, just provide the same information and download folder as before, and click on the Resume button instead of download. Your download will be resumed from previous position.\n\n"
-            "IF THE DOWNLOAD SCREEN STALLS:\n"
-            "If the download screen does not change and does not show update for some time, then click on the command prompt window and press any button, your download should resume.\n\n"
-            "You can not download an entire specialization. For specialization enter url of the course within it.\n\n"
-            "FOUND A BUG? feel free to email at touhid3.1416@gmail.com"
-        )
         dlg = QMessageBox(self)
-        dlg.setWindowTitle("Help - Coursera Full Course Downloader")
-        dlg.setText(help_text)
+        dlg.setWindowTitle("About - Coursera Full Course Downloader")
+        dlg.setTextFormat(Qt.RichText)
+        dlg.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+        dlg.setText(about_text)
         dlg.setStandardButtons(QMessageBox.Ok)
         dlg.exec_()
 
+    def show_help(self):
+        help_text = """
+    <b>USING THE PROGRAM:</b><br>
+    Using the program is very easy. Just enter the necessary things and hit download. Your download will start in a command prompt window. You can see the download progress in the command prompt window. It will take some moments for the processing to finish, and download to start.<br><br>
+    Use CTRL+V to paste URL.<br><br>
+    <b>STOP DOWNLOAD:</b><br>
+    Press CTRL+C on the command prompt window.<br><br>
+    <b>RESUME DOWNLOAD:</b><br>
+    If you want to RESUME the download later on, just provide the same information and download folder as before, and click on the Resume button instead of download. Your download will be resumed from previous position.<br><br>
+    <b>IF THE DOWNLOAD SCREEN STALLS:</b><br>
+    If the download screen does not change and does not show update for some time, then click on the command prompt window and press any button, your download should resume.<br><br>
+    <b>You can not download an entire specialization. For specialization enter url of the course within it.</b><br><br>
+    <b>FOUND A BUG?</b> Feel free to email at <u>touhid3.1416@gmail.com</u>
+    """
+
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle("Help - Coursera Full Course Downloader")
+        dlg.setTextFormat(Qt.RichText)
+        dlg.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+        dlg.setText(help_text)
+        dlg.setStandardButtons(QMessageBox.Ok)
+        dlg.exec_()
+    
     def downloadBtnHandler(self):
         # load cauth code automatically and store it in inputvardict
-        cauth = general.loadcauth('coursera.org')
+        browser = self.browser_combo.currentText()
+        cauth = general.loadcauth('coursera.org', browser)
         if cauth == -1:
             QMessageBox.warning(self, "Error", "Could not load authentication from Firefox or Chrome. Make sure you are logged in on coursera.org in Chrome or Firefox.")
             return
@@ -234,7 +282,8 @@ class MainWindow(QMainWindow):
         if self.shouldResume:
             cmd.append("--resume")
 
-        QMessageBox.information(self, "Download", "INITIALIZING DOWNLOAD... PRESS CTRL+C TO STOP DOWNLOAD\nCheck the console for progress.")
+        cmd = ' '.join(str(x) for x in cmd)
+        # QMessageBox.information(self, "Download", "INITIALIZING DOWNLOAD... PRESS CTRL+C TO STOP DOWNLOAD\nCheck the console for progress.")
 
         try:
             main_f(cmd)
