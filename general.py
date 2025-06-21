@@ -50,27 +50,26 @@ def urltoclassname(homepageurl):
 
 
 def loadcauth(domain):
-    '''this function returns the cauth code of browser for the specified domain.
+    """this function returns the cauth code of browser for the specified domain.
     example use: loadcauth('coursera.org'). the function searches only in the cookie
     files of chrome and firefox. if there is no cauth for the domain function returns
-    an empty string'''
+    an empty string"""
 
     cauth = -1 
 
     # first try to load cauth from firefox
     from locked_cookie import fetch_locked_cookies
-    try:
-        cj_ffox = bc.firefox(domain_name=domain)
-        for cookie in cj_ffox:
-            if (cookie.name == "CAUTH"):
-                cauth = cookie.value
-                print('>> FETCHED AUTHENTICATION FROM FIREFOX\n')    
-    except:
-            cauth = -1
-            print('>> failed to load authentication from firefox\n')
     
-    # failed to load cauth from firefox, try chrome
+    cj_ffox = bc.firefox(domain_name=domain)
+    for cookie in cj_ffox:
+        if (cookie.name == "CAUTH"):
+            cauth = cookie.value
+            print('>> FETCHED AUTHENTICATION FROM FIREFOX\n')
+
     if (cauth == -1):
+        # failed to load cauth from firefox, try chrome
+        print('>> Could not load authentication from firefox\n')
+        
         try:
             cj_chrome = fetch_locked_cookies(domain='coursera.org')
 
@@ -79,8 +78,7 @@ def loadcauth(domain):
                     cauth = cookie.value
                     print('>> FETCHED AUTHENTICATION FROM CHROME\n')
         except:
-            cauth = -1           
-            print('>> failed to load authentication from chrome\n')    
+            print('>> Could not load authentication from chrome\n')    
     
     return cauth
 
@@ -109,3 +107,6 @@ def move_to_first(dictionary, key):
 # url = "model-thinking?"
 # cn = urltoclassname(url)
 # print(cn)
+if __name__ == "__main__":
+    ca = loadcauth('coursera.org')
+    print(ca)

@@ -5,6 +5,7 @@
 # ignore files
 notes.txt
 TODO.txt 
+draft.py
 
 # ignore folder
 win64_build/

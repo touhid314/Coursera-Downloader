@@ -1,265 +1,205 @@
-from tkinter import *
-from tkinter import ttk
-from tkinter.filedialog import askdirectory
-import os, pickle, webbrowser, requests
-from PIL import Image, ImageTk
-from varname import nameof
+import sys
+import os
+import pickle
+import requests
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QRadioButton,
+    QComboBox, QFileDialog, QMessageBox, QVBoxLayout, QHBoxLayout, QGridLayout, QTextEdit,
+    QMenuBar, QAction, QGroupBox
+)
+from PyQt5.QtGui import QIcon, QFont, QCursor
+from PyQt5.QtCore import Qt
+
 import general
 from coursera_dl import main_f
 
-# if download path contains space it will be set to 0 and downlaod wont run
 __version__ = "2.1.0"
 
-class main:
+class MainWindow(QMainWindow):
     def __init__(self):
-
-        # window
-        self.window = Tk()
-        self.window.title("Coursera Full Course Downloader")
-        self.window.resizable(False, False)
-
-        icon = Image.open("icon/icon.ico")
-        photo = ImageTk.PhotoImage(icon)
-        self.window.iconphoto(True, photo)
-        
-        # @variables
-        cauth = StringVar()
-        classname = StringVar()
-        path = StringVar()
-        vidres = StringVar()
-        sllangs = StringVar()  # subtitle languages
+        super().__init__()
+        self.setWindowTitle("Coursera Full Course Downloader")
+        self.setFixedSize(600, 300)
+        self.setWindowIcon(QIcon("icon/icon.ico"))
 
         self.shouldResume = False
 
-        # @
-        self.inputvardict = {'ca': cauth, 'classname': classname,
-                             'path': path, 'video_resolution': vidres,
-                             'sl': sllangs}
-
-        # load argument's value
-        self.argdict = self.loadargdict()
-
-        # set input variable's values
-        for key, value in self.inputvardict.items():
-            value.set(self.argdict[key])
-
-        # Load UI
-        self.loadUI()
-
-        # start mainloop
-        self.window.mainloop()
-
-    def loadUI(self):
-        # Menu bar
-        menubar = Menu(self.window)
-        self.window.config(menu=menubar)
-
-        main_menu = Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Menu", menu=main_menu)
-        main_menu.add_command(label="About", command=self.show_about)
-        main_menu.add_command(label="Help", command=self.show_help)
-
-        # frame
-        frame1 = Frame(self.window)
-        frame1.pack()
-
-        LW = 20  # LABEL WIDTH
-        EW = 50  # ENTRY WIDTH
-
-        # info message frame
-        infoMsgFrame = Frame(frame1, padx=0, pady=6)
-        infoMsgFrame.grid(row=1, column=1, columnspan=2)
-
-        msg = '''You must be logged in in coursera.org in Chrome or Firefox.\
-                    \nYou can only download courses that you are enrolled in.\
-                    \n* Make sure that your download path doesn't include any space.\
-                    \ni.e. "C:\Test User" will generate error. '''
-        infoMsg = Message(infoMsgFrame, text=msg, width=400)
-        infoMsg.grid(row=1)
-
-        # course name row
-        Label(frame1,
-              text="Course Home Page URL: ",
-              width=LW,
-              anchor='w').grid(row=4, column=1)
-
-        name_entry = Entry(frame1,
-                           textvariable=self.inputvardict['classname'],
-                           width=EW)
-        name_entry.grid(row=4, column=2)
-        name_entry.focus_set()
-
-        # download folder row
-        Label(frame1, text="Download Folder: ", width=LW,
-              anchor='w').grid(row=5, column=1, sticky='W')
-        Button(frame1, text="Select Folder", command=self.getPath).grid(
-            row=5, column=2, sticky='W')
-        Message(frame1, textvariable=self.inputvardict['path'], width=300, anchor='w').grid(
-            row=6, column=2, sticky='w')
-
-        # video resolution row
-        Label(frame1,
-              text="Video Resolution: ",
-              width=LW,
-              anchor='w').grid(row=7, column=1, sticky='W')
-
-        innerframe = Frame(frame1)
-        innerframe.grid(row=7, column=2, sticky='W')
-
-        Radiobutton(innerframe,
-                    text="720p",
-                    variable=self.inputvardict['video_resolution'],
-                    value='720p').grid(row=1, column=1)
-
-        Radiobutton(innerframe,
-                    text="540p",
-                    variable=self.inputvardict['video_resolution'],
-                    value='540p').grid(row=1, column=2)
-
-        Radiobutton(innerframe,
-                    text="360p",
-                    variable=self.inputvardict['video_resolution'],
-                    value='360p').grid(row=1, column=3)
-
-        self.inputvardict['video_resolution'].set('720p')
-
-        # subtitle language row
-        Label(frame1,
-              text='Subtitle Language: ',
-              width=LW,
-              anchor='w').grid(row=10, column=1)
-
+        # Variables
+        self.inputvardict = {
+            'ca': '',
+            'classname': '',
+            'path': '',
+            'video_resolution': '720p',
+            'sl': 'English'
+        }
         self.sllangschoices = general.LANG_NAME_TO_CODE_MAPPING
-        self.inputvardict['sl'].set('English')
 
-        ttk.Combobox(frame1,
-                     textvariable=self.inputvardict['sl'],
-                     values=sorted(list(self.sllangschoices.keys())),
-                     state='readonly').grid(row=10, column=2, sticky='W')
+        self.argdict = self.loadargdict()
+        for key in self.inputvardict:
+            if key in self.argdict:
+                self.inputvardict[key] = self.argdict[key]
 
-        # transcript row
+        self.initUI()
 
-        # download and resume button row
-        btnFrame = Frame(frame1)
-        btnFrame.grid(row=11, column=2, sticky='E')
+    def initUI(self):
+        # Menu
+        menubar = self.menuBar()
+        menu = menubar.addMenu("Menu")
+        about_action = QAction("About", self)
+        about_action.triggered.connect(self.show_about)
+        help_action = QAction("Help", self)
+        help_action.triggered.connect(self.show_help)
+        menu.addAction(about_action)
+        menu.addAction(help_action)
 
-        downloadBtn = Button(btnFrame,
-                             text="Download",
-                             command=self.downloadBtnHandler)
-        downloadBtn.grid(row=11, column=2, sticky='E')
+        # Central widget
+        central = QWidget()
+        self.setCentralWidget(central)
+        layout = QVBoxLayout()
+        central.setLayout(layout)
 
-        resumeBtn = Button(btnFrame,
-                           text='Resume',
-                           command=self.resumeBtnHandler)
-        resumeBtn.grid(row=11, column=1, sticky='E')
+        # Set a smaller spacing for the main vertical layout
+        layout.setSpacing(5) # Reduced spacing between widgets
+        layout.setContentsMargins(10, 10, 10, 10) # Sets margins for a layout
 
-        # website link
-        label = Label(frame1, text="For usage guide go to")
-        link = Label(frame1, text="http://coursera-downloader.rf.gd/",
-                     fg="blue", cursor="hand2")
-        link.bind("<Button-1>", lambda event: open_url())
 
-        frame1.grid_rowconfigure(12, weight=1)
-        frame1.grid_columnconfigure(0, weight=1)
+        # Info message
+        info = QLabel(
+            "You must be logged in in coursera.org in Chrome or Firefox.\n"
+            "You can only download courses that you are enrolled in.\n"
+            "* Make sure that your download path doesn't include any space.\n"
+            'i.e. "C:\\Test User" will generate error.'
+        )
+        info.setWordWrap(True)
+        info.setAlignment(Qt.AlignCenter)
+        layout.addWidget(info)
 
-        label.grid(row=12, column=1)
-        link.grid(row=12, column=2)
+        grid = QGridLayout()
+        layout.addLayout(grid)
+        # You can also set spacing for the grid layout if needed
+        # grid.setSpacing(5) # Smaller spacing within the grid
+
+        # Course URL
+        grid.addWidget(QLabel("Course Home Page URL:"), 0, 0)
+        self.classname_edit = QLineEdit(self.inputvardict['classname'])
+        grid.addWidget(self.classname_edit, 0, 1)
+
+        # Download folder
+        grid.addWidget(QLabel("Download Folder:"), 1, 0)
+        self.path_btn = QPushButton("Select Folder")
+        self.path_btn.clicked.connect(self.getPath)
+        grid.addWidget(self.path_btn, 1, 1)
+        self.path_label = QLabel(self.inputvardict['path'])
+        grid.addWidget(self.path_label, 2, 1)
+
+        # Video resolution
+        grid.addWidget(QLabel("Video Resolution:"), 3, 0)
+        res_group = QGroupBox()
+        res_layout = QHBoxLayout()
+        res_group.setLayout(res_layout)
+        self.res_720 = QRadioButton("720p")
+        self.res_540 = QRadioButton("540p")
+        self.res_360 = QRadioButton("360p")
+        res_layout.addWidget(self.res_720)
+        res_layout.addWidget(self.res_540)
+        res_layout.addWidget(self.res_360)
+        grid.addWidget(res_group, 3, 1)
+        # Set checked
+        if self.inputvardict['video_resolution'] == '540p':
+            self.res_540.setChecked(True)
+        elif self.inputvardict['video_resolution'] == '360p':
+            self.res_360.setChecked(True)
+        else:
+            self.res_720.setChecked(True)
+
+        # Subtitle language
+        grid.addWidget(QLabel("Subtitle Language:"), 4, 0)
+        self.sl_combo = QComboBox()
+        self.sl_combo.addItems(sorted(self.sllangschoices.keys()))
+        self.sl_combo.setCurrentText(self.inputvardict['sl'])
+        grid.addWidget(self.sl_combo, 4, 1)
+
+        # Download/Resume buttons
+        btn_layout = QHBoxLayout()
+        self.download_btn = QPushButton("Download")
+        self.download_btn.clicked.connect(self.downloadBtnHandler)
+        self.resume_btn = QPushButton("Resume")
+        self.resume_btn.clicked.connect(self.resumeBtnHandler)
+        btn_layout.addWidget(self.resume_btn)
+        btn_layout.addWidget(self.download_btn)
+        layout.addLayout(btn_layout)
+
+        # Add a stretch to push content upwards
+        layout.addStretch(1)
+
+        # Website link
+        link_label = QLabel('For usage guide go to <a href="https://coursera-downloader.rf.gd/#guide-block">http://coursera-downloader.rf.gd/</a>')
+        link_label.setOpenExternalLinks(True)
+        layout.addWidget(link_label)
 
     def show_about(self):
-        about_window = Toplevel(self.window)
-        about_window.title("Coursera Full Course Downloader")
-
-        # Set fixed size and disable resizable
-        about_window.geometry("350x150")
-        about_window.resizable(False, False)
-
-        about_text = f"Coursera Full Course Downloader v{__version__}\n\nTouhidul Islam\nDepartment of EEE, BUET\ntouhid3.1416@gmail.com"
-        
-        about_label = Message(about_window, text=about_text, width=300)
-        about_label.pack(padx=0, pady=5)
-
-        # OK button to close the About window
-        ok_button = Button(about_window, text="OK", command=about_window.destroy, width=5, height=3)
-        ok_button.pack(pady=10)
-
+        QMessageBox.information(
+            self, "Coursera Full Course Downloader",
+            f"Coursera Full Course Downloader v{__version__}\n\nTouhidul Islam\nDepartment of EEE, BUET\ntouhid3.1416@gmail.com"
+        )
 
     def show_help(self):
-        help_window = Toplevel(self.window)
-        help_window.title("Help - Coursera Full Course Downloader")
-        help_window.geometry("500x300")
-        help_window.resizable(False, False)
-
-        help_text = '''USING THE PROGRAM:
-Using the program is very easy. Just enter the necessary things and hit download. Your download will start in a command prompt window. You can see the download progress in the command prompt window. It will take some moments for the processing to finish, and download to start.
-
-Use CTRL+V to paste URL.
-
-STOP DOWNLOAD:
-Press CTRL+C on the command prompt window.
-
-RESUME DOWNLOAD:
-If you want to RESUME the download later on, just provide the same information and download folder as before, and click on the Resume button instead of download. Your download will be resumed from previous position.
-
-IF THE DOWNLOAD SCREEN STALLS:
-If the download screen does not change and does not show update for some time, then click on the command prompt window and press any button, your download should resume.
-
-You can not download an entire specialization. For specialization enter url of the course within it.
-
-FOUND A BUG? feel free to email at touhid3.1416@gmail.com
-        '''
-
-        help_text_widget = Text(help_window, wrap="word", height=16, width=68)
-        help_text_widget.insert("1.0", help_text)
-        help_text_widget.config(state="disabled")  # Make the Text widget read-only
-        custom_font = ("Arial", 10)  # Replace with your preferred font and size
-        help_text_widget.config(font=custom_font)
-
-
-        # Create a Scrollbar for vertical scrolling
-        scrollbar = Scrollbar(help_window, command=help_text_widget.yview)
-
-        # Pack the Text and Scrollbar widgets
-        help_text_widget.pack(side="left", padx=5, pady=5)
-        scrollbar.pack(side="right", fill="y")
-        
-        # Configure the Text widget to use the scrollbar
-        help_text_widget.config(yscrollcommand=scrollbar.set)
-        
+        help_text = (
+            "USING THE PROGRAM:\n"
+            "Using the program is very easy. Just enter the necessary things and hit download. Your download will start in a command prompt window. You can see the download progress in the command prompt window. It will take some moments for the processing to finish, and download to start.\n\n"
+            "Use CTRL+V to paste URL.\n\n"
+            "STOP DOWNLOAD:\n"
+            "Press CTRL+C on the command prompt window.\n\n"
+            "RESUME DOWNLOAD:\n"
+            "If you want to RESUME the download later on, just provide the same information and download folder as before, and click on the Resume button instead of download. Your download will be resumed from previous position.\n\n"
+            "IF THE DOWNLOAD SCREEN STALLS:\n"
+            "If the download screen does not change and does not show update for some time, then click on the command prompt window and press any button, your download should resume.\n\n"
+            "You can not download an entire specialization. For specialization enter url of the course within it.\n\n"
+            "FOUND A BUG? feel free to email at touhid3.1416@gmail.com"
+        )
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle("Help - Coursera Full Course Downloader")
+        dlg.setText(help_text)
+        dlg.setStandardButtons(QMessageBox.Ok)
+        dlg.exec_()
 
     def downloadBtnHandler(self):
         # load cauth code automatically and store it in inputvardict
-        cauth =  general.loadcauth('coursera.org')   
-        if(cauth == -1):
-            print(">> could not load authentication from firefox or chrome. make sure you are logged in on coursera.org in chrome or firefox.\n")
+        cauth = general.loadcauth('coursera.org')
+        if cauth == -1:
+            QMessageBox.warning(self, "Error", "Could not load authentication from Firefox or Chrome. Make sure you are logged in on coursera.org in Chrome or Firefox.")
             return
-        
-        self.inputvardict['ca'].set(cauth)
-        
-        # check if path is valid
-        if self.inputvardict['path'].get() == '':
-            print('>> NO FOLDER SPECIFIED. PLEASE SELECT A FOLDER\n')
-            return
+        self.inputvardict['ca'] = cauth
+
+        # Get values from widgets
+        self.inputvardict['classname'] = self.classname_edit.text()
+        self.inputvardict['path'] = self.path_label.text()
+        if self.res_720.isChecked():
+            self.inputvardict['video_resolution'] = '720p'
+        elif self.res_540.isChecked():
+            self.inputvardict['video_resolution'] = '540p'
         else:
-            print(">> DOWNLOADING TO: ", self.inputvardict['path'].get(), '\n')
+            self.inputvardict['video_resolution'] = '360p'
+        self.inputvardict['sl'] = self.sl_combo.currentText()
+
+        # check if path is valid
+        if self.inputvardict['path'] == '':
+            QMessageBox.warning(self, "Error", "NO FOLDER SPECIFIED. PLEASE SELECT A FOLDER")
+            return
 
         # make argdict from inputvarlist
         self.argdict = {}
         for key, value in self.inputvardict.items():
-            # do necessary processing
-
-            # process classname variable which actually stores course home page url
-            # convert the home page url to classname
             if key == 'classname':
-                courseurl = self.inputvardict['classname'].get()
+                courseurl = self.inputvardict['classname']
                 cname = general.urltoclassname(courseurl)
                 if cname == "":
-                    print(">> INVALID COURSE NAME/ HOME PAGE URL\n")
+                    QMessageBox.warning(self, "Error", "INVALID COURSE NAME/ HOME PAGE URL")
                     return
                 self.argdict[key] = cname
                 continue
-
             if key == 'sl':
-                langcode = self.sllangschoices[self.inputvardict['sl'].get()]
+                langcode = self.sllangschoices[self.inputvardict['sl']]
                 if langcode == '':
                     self.argdict['ignore-formats'] = "srt"
                     self.argdict[key] = 'en'
@@ -267,33 +207,24 @@ FOUND A BUG? feel free to email at touhid3.1416@gmail.com
                 else:
                     self.argdict[key] = langcode
                     continue
-
-            self.argdict[key] = value.get()
+            self.argdict[key] = value
 
         # save the argdict to data.bin
         self.saveargdic()
 
         # create command from argumentdict
         cmd = []
-
         self.argdict = general.move_to_first(self.argdict, 'ca')
         for item in self.argdict.items():
-            # convert ca to -cauth and u to -u
             if (item[0] == 'video_resolution') or (item[0] == 'path'):
                 flag = '--' + item[0]
             else:
                 flag = '-' + item[0]
-
-            # convert video_resolution to video-resolution
             flag = flag.replace('_', '-')
-
-            # now append to cmd
-            # @ FILTER ARGUMENTS THAT DON'T NEED FLAG LIKE, classname, resume etc.
             if not 'classname' in flag:
                 cmd.append(flag)
             cmd.append(item[1])
 
-        # append additional commands
         cmd.append('--download-quizzes')
         cmd.append('--download-notebooks')
         cmd.append('--disable-url-skipping')
@@ -302,74 +233,52 @@ FOUND A BUG? feel free to email at touhid3.1416@gmail.com
         cmd.append('--jobs')
         cmd.append('1')
 
-        if self.shouldResume == True:
+        if self.shouldResume:
             cmd.append("--resume")
 
-        # # run cmd
-        cmd = ' '.join(cmd)
+        cmd = ' '.join(str(x) for x in cmd)
+        QMessageBox.information(self, "Download", "INITIALIZING DOWNLOAD... PRESS CTRL+C TO STOP DOWNLOAD\nCheck the console for progress.")
 
-        # print(cmd)
-        print(">> INITIALIZING DOWNLOAD... PRESS CTRL+C TO STOP DOWNLOAD\n")
         try:
             main_f(cmd)
         except KeyboardInterrupt:
-            print("\n>> DOWNLOAD STOPPED, YOU CAN RESUME YOUR DOWNLOAD LATER\n")
+            QMessageBox.information(self, "Stopped", "DOWNLOAD STOPPED, YOU CAN RESUME YOUR DOWNLOAD LATER")
         except requests.exceptions.HTTPError as e:
-            print(">> HTTP ERROR: ", e, "\n")
-            print(">> MAKE SURE YOU ARE LOGGED IN ON coursera.org ON CHROME OR FIREFOX AND YOU ARE ENROLLED INTO THE COURSE\n")
+            QMessageBox.warning(self, "HTTP Error", f"HTTP ERROR: {e}\nMAKE SURE YOU ARE LOGGED IN ON coursera.org ON CHROME OR FIREFOX AND YOU ARE ENROLLED INTO THE COURSE")
         except requests.exceptions.SSLError as e:
-            print(">> SSL ERROR: ", e, "\n")
-        except:
-            print(">> SOMETHING WENT WRONG, PLEASE TRY AGAIN\n")
+            QMessageBox.warning(self, "SSL Error", f"SSL ERROR: {e}")
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"SOMETHING WENT WRONG, PLEASE TRY AGAIN\n{e}")
 
     def resumeBtnHandler(self):
         self.shouldResume = True
         self.downloadBtnHandler()
+        self.shouldResume = False
+
+    def getPath(self):
+        dir = QFileDialog.getExistingDirectory(self, "Select Download Folder", "")
+        if ' ' in dir:
+            QMessageBox.warning(self, "Error", "YOUR DOWNLOAD PATH CONTAINS SPACE IN IT. CHOOSE A DIFFERENT DOWNLOAD PATH THAT DOESN'T HAVE ANY FOLDER IN ITS PATH WITH SPACE IN FOLDER NAME.")
+            dir = ''
+        self.path_label.setText(dir)
 
     def loadargdict(self):
-        # dic = {'username':'', 'password':'', 'cauth': '', 'path':''}
-        dic = {}
-        for i in self.inputvardict.keys():
-            dic[i] = ''
-
-        # if data.bin doesn't exist make it return the empty dic
+        dic = {i: '' for i in self.inputvardict.keys()}
         if not os.path.isfile("data.bin"):
-            f = open("data.bin", 'wb')
-            pickle.dump(dic, f)
-            f.close()
-
+            with open("data.bin", 'wb') as f:
+                pickle.dump(dic, f)
             return dic
-        # else load dic from data.bin
         else:
-            f = open("data.bin", 'rb')
-            dic = pickle.load(f)
+            with open("data.bin", 'rb') as f:
+                dic = pickle.load(f)
             return dic
 
     def saveargdic(self):
-        # dic = {'username': self.argdict['username'],
-        #         'password': self.argdict['password'],
-        #         'cauth': self.argdict['cauth'],
-        #         'path': self.argdict['path']} #tkinter variable are saved. get method has to be used to get their value
-
-        f = open("data.bin", 'wb')
-        pickle.dump(self.argdict, f)
-        f.close()
-
-    def getPath(self):
-        dir = askdirectory()
-        if ' ' in dir:
-            print('>> DOWNLOAD PATH:', dir)
-            print(">> YOUR DOWNLOAD PATH CONTAINS SPACE IN IT. CHOOSE A DIFFERENT DOWNLOAD PATH THAT DOESN'T HAVE ANY FOLDER IN ITS PATH WITH SPACE IN FOLDER NAME.\n")
-            dir = ''
-                    
-        self.inputvardict['path'].set(dir)
-
-# global functions
-
-
-def open_url():
-    url = "http://coursera-downloader.rf.gd/"
-    webbrowser.open(url)
+        with open("data.bin", 'wb') as f:
+            pickle.dump(self.argdict, f)
 
 if __name__ == "__main__":
-    main()
+    app = QApplication(sys.argv)
+    win = MainWindow()
+    win.show()
+    sys.exit(app.exec_())
