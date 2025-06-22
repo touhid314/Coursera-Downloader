@@ -67,8 +67,6 @@ class MainWindow(QMainWindow):
         info = QLabel(
             "You must be logged in in coursera.org in Chrome or Firefox.\n"
             "You can only download courses that you are enrolled in.\n"
-            "* Make sure that your download path doesn't include any space.\n"
-            'i.e. "C:\\Test User" will generate error.'
         )
         info.setWordWrap(True)
         info.setAlignment(Qt.AlignCenter)
@@ -236,7 +234,6 @@ class MainWindow(QMainWindow):
         if self.shouldResume:
             cmd.append("--resume")
 
-        cmd = ' '.join(str(x) for x in cmd)
         QMessageBox.information(self, "Download", "INITIALIZING DOWNLOAD... PRESS CTRL+C TO STOP DOWNLOAD\nCheck the console for progress.")
 
         try:
@@ -257,9 +254,6 @@ class MainWindow(QMainWindow):
 
     def getPath(self):
         dir = QFileDialog.getExistingDirectory(self, "Select Download Folder", "")
-        if ' ' in dir:
-            QMessageBox.warning(self, "Error", "YOUR DOWNLOAD PATH CONTAINS SPACE IN IT. CHOOSE A DIFFERENT DOWNLOAD PATH THAT DOESN'T HAVE ANY FOLDER IN ITS PATH WITH SPACE IN FOLDER NAME.")
-            dir = ''
         self.path_label.setText(dir)
 
     def loadargdict(self):
