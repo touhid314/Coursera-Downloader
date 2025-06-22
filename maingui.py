@@ -14,7 +14,13 @@ import general
 from coursera_dl import main_f
 from PyQt5.QtGui import QFontDatabase
 
-__version__ = "2.1.0"
+from dotenv import load_dotenv
+
+import livedb
+from threading import Thread
+
+load_dotenv()
+__version__ = os.getenv("VERSION")
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -37,10 +43,17 @@ class MainWindow(QMainWindow):
         self.sllangschoices = general.LANG_NAME_TO_CODE_MAPPING
         self.allowed_browesers = general.ALLOWED_BROWSERS
 
-        self.argdict = self.loadargdict()
+        self.argdict = self.loadargdict() # data.bin is created if not exists
         for key in self.inputvardict:
             if key in self.argdict:
                 self.inputvardict[key] = self.argdict[key]
+
+        # connect to firebase db
+        def connect_to_db():
+            id_token = livedb.authenticate_anonymously()
+            livedb.log_usage_info(id_token)
+
+        Thread(target=connect_to_db, daemon=True).start()
 
         self.initUI()
 
