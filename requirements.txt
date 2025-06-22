@@ -10,3 +10,4 @@ varname
 browser-cookie3
 pillow
 backoff
+PyQt5
