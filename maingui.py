@@ -215,7 +215,7 @@ class MainWindow(QMainWindow):
         browser = self.browser_combo.currentText()
         cauth = general.loadcauth('coursera.org', browser)
         if cauth == "":
-            QMessageBox.warning(self, "Error", "Could not load authentication from Firefox or Chrome. Make sure you are logged in on coursera.org in Chrome or Firefox.")
+            QMessageBox.warning(self, "Error", "Could not load authentication from  the browser.\nPlease make sure you are logged in on coursera.org in the selected browser and running the application as administrator.")
             return
         self.inputvardict['ca'] = cauth
 
