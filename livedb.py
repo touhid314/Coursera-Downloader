@@ -5,6 +5,9 @@ import json
 from datetime import datetime
 from dotenv import load_dotenv
 import pickle
+import platform
+from packaging import version
+
 
 # Load environment variables
 load_dotenv()
@@ -12,7 +15,7 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 PROJECT_ID = os.getenv("PROJECT_ID")
 
-# === Firebase Authentication ===
+# === Authentication ===
 def authenticate_anonymously():
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={API_KEY}"
     res = requests.post(url, json={"returnSecureToken": True})
@@ -20,10 +23,52 @@ def authenticate_anonymously():
     id_token = res.json()["idToken"]
     return id_token
 
+
+
+# === check for update ===
+def get_latest_version(id_token):
+    url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/maindb/app_info"
+    headers = {"Authorization": f"Bearer {id_token}"}
+    res = requests.get(url, headers=headers)
+    res.raise_for_status()
+    doc = res.json()
+
+    # Extract the version from Firestore document fields
+    version_field = doc.get("fields", {}).get("latest_version", {})
+    return version_field.get("stringValue")
+
+
+def check_for_update(id_token):
+    """ Check if the current app version is up-to-date with the latest version.
+        returns - 
+            True, latest version if an update is available; False, current version otherwise.
+            If the latest version cannot be determined, it returns None, current version.
+    """
+    latest_version = get_latest_version(id_token)
+    current_version = os.getenv("VERSION")
+
+    if latest_version and current_version:
+        if version.parse(latest_version) > version.parse(current_version):
+            return True, latest_version
+        else:
+            return False, current_version
+    else:
+        return None, current_version
+    
+
+# === push notification ===
+def get_push_notification(id_token):
+    url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/maindb/push_notification"
+    headers = {"Authorization": f"Bearer {id_token}"}
+    res = requests.get(url, headers=headers)
+    res.raise_for_status()
+    doc = res.json()
+    return doc.get("fields", {}).get("markup_text", {}).get("stringValue")
+
+
 # === Store JSON in Firestore ===
 def log_usage_info(id_token):
     doc_id = make_doc_id()
-    usage_data = get_session_info()
 
     url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/usage_info/{doc_id}"
 
@@ -35,10 +80,11 @@ def log_usage_info(id_token):
     # Convert Python dict to Firestore format
     firestore_data = {
         "fields": {
-            "user_id": {"stringValue": usage_data["user_id"]},
-            "country": {"stringValue": usage_data["country"]},
-            "app_version": {"stringValue": usage_data["app_version"]},
-            "time": {"timestampValue": usage_data["time"]}
+            "user_id": {"stringValue": get_set_user_id()},
+            "country": {"stringValue": get_country()},
+            "app_version": {"stringValue": os.getenv("VERSION")},
+            "time": {"timestampValue": datetime.now(timezone.utc).isoformat()},
+            "platform": {"stringValue": platform.system()}
         }
     }
 
@@ -79,19 +125,14 @@ def make_doc_id():
     # Generate a document ID based on user ID and current timestamp
     return f"{get_set_user_id()}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
 
-
-def get_session_info():
-    # Get session information
-    return {
-        "user_id": get_set_user_id(),
-        "app_version": os.getenv("VERSION"),  
-        "country": get_country(),
-        "time": datetime.now(timezone.utc).isoformat()
-    }
     
 
 # === Main ===
 if __name__ == "__main__":
     id_token = authenticate_anonymously()
-    log_usage_info(id_token)
+    # log_usage_info(id_token)
+    # has_update, latest_version = check_for_update(id_token)
+    # print(f"Update available: {has_update}, Latest version: {latest_version}")
+
+    print(get_push_notification(id_token))
 
