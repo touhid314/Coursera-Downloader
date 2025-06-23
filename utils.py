@@ -282,3 +282,44 @@ def print_ssl_error_message(exception):
 #####################################################################
 """ % (type(exception).__name__, str(exception))
     logging.error(message)
+
+
+##########################################################################
+import os
+import re
+import requests
+from urllib.parse import urlparse
+
+def process_notification_html(notification_html: str) -> str:
+    """
+    Check if notification HTML contains <img> tags,
+    download the images with proper User-Agent, save locally as notification_img.<ext>,
+    and replace the src attribute with the local filename.
+    """
+    img_tag_pattern = r'<img\s+[^>]*src=["\']([^"\']+)["\'][^>]*>'
+    matches = re.findall(img_tag_pattern, notification_html)
+
+    headers = {
+        'User-Agent': 'MyApp/1.0 (https://yourdomain.com; myemail@domain.com) Python requests'
+    }
+
+    for i, img_url in enumerate(matches):
+        try:
+            response = requests.get(img_url, headers=headers)
+            response.raise_for_status()
+
+            path = urlparse(img_url).path
+            ext = os.path.splitext(path)[1]
+            if not ext or len(ext) > 5:
+                ext = ".png"
+
+            local_filename = f"notification_img{ext}"
+
+            with open(local_filename, "wb") as f:
+                f.write(response.content)
+
+            notification_html = notification_html.replace(img_url, local_filename)
+        except Exception as e:
+            # print(f"Failed to download image {img_url}: {e}")
+            pass
+    return notification_html

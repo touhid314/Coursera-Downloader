@@ -9,10 +9,12 @@ draft.py
 draft2.py
 features.txt
 .env
-default_databin/
+manual_test.txt
+notification_img.*
 
 # ignore folder
 win64_build/
 __pycache__/
 img/
 .vscode/
+default_databin/

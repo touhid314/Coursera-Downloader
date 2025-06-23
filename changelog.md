@@ -15,3 +15,11 @@ v2.1.1 -
         * organized the repo, deleted the old code
         * fixed chinese subtitle code to zh-CN
         
+v3.0.0 - 
+        * stopped using tkinter and switched to pyqt
+        * dowload path cannot contain space - bug solved
+        * UI update
+        * some minor UI bug solved
+        * can check for app update
+        * anonymously log user country and app open time to remote server for analyzing total app users
+        * can show notification fetched from remote server

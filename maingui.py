@@ -1,4 +1,4 @@
-__version__ = "2.0.0"
+__version__ = "3.0.0"
 
 import sys, requests
 from PyQt5.QtWidgets import (
@@ -11,6 +11,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QCheckBox
 
+from utils import process_notification_html
 import general
 from coursera_dl import main_f
 from PyQt5.QtGui import QFontDatabase
@@ -180,6 +181,9 @@ class MainWindow(QMainWindow):
         # notification area
         self.notification_area = QTextBrowser()
         self.notification_area.setMaximumSize(500, 100)
+        self.notification_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.notification_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
         layout.addWidget(self.notification_area)
         self.notification_area.hide()
 
@@ -244,7 +248,11 @@ class MainWindow(QMainWindow):
             self.notification_area.hide()
         else:
             self.setMinimumSize(500, 400)  # Increase minimum size to accommodate notification area
-            self.notification_area.setHtml(self.notification)
+        
+            # Process notification HTML to download images and replace src if there is an <img> tag
+            processed_notification = process_notification_html(self.notification)
+
+            self.notification_area.setHtml(processed_notification)
             self.notification_area.show()
             self.notification_area.setOpenExternalLinks(True)
             self.notification_area.setCursor(QCursor(Qt.PointingHandCursor))
