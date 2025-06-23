@@ -12,8 +12,8 @@ from packaging import version
 # Load environment variables
 load_dotenv()
 
-API_KEY = os.getenv("API_KEY")
-PROJECT_ID = os.getenv("PROJECT_ID")
+import localdb
+API_KEY, PROJECT_ID = localdb.SimpleDB().get_remote_config()
 
 # === Authentication ===
 def authenticate_anonymously():

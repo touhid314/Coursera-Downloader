@@ -59,32 +59,6 @@ def loadcauth(domain:str, browser:str):
     example use: loadcauth('coursera.org'). 
     
     """
-
-    cauth = -1 
-
-    # # first try to load cauth from firefox
-    # from locked_cookie import fetch_locked_cookies
-    
-    # cj_ffox = bc.firefox(domain_name=domain)
-    # for cookie in cj_ffox:
-    #     if (cookie.name == "CAUTH"):
-    #         cauth = cookie.value
-    #         print('>> FETCHED AUTHENTICATION FROM FIREFOX\n')
-
-    # if (cauth == -1):
-    #     # failed to load cauth from firefox, try chrome
-    #     print('>> Could not load authentication from firefox\n')
-        
-    #     try:
-    #         cj_chrome = fetch_locked_cookies(domain='coursera.org')
-
-    #         for cookie in cj_chrome:
-    #             if(cookie.name == "CAUTH"):
-    #                 cauth = cookie.value
-    #                 print('>> FETCHED AUTHENTICATION FROM CHROME\n')
-    #     except:
-    #         print('>> Could not load authentication from chrome\n')    
-
     cauth = ""
 
     if browser not in ALLOWED_BROWSERS:

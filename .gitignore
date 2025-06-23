@@ -1,5 +1,5 @@
 # ignore extensions
-*.bin
+# *.bin
 *.json
 
 # ignore files

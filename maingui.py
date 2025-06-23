@@ -1,7 +1,6 @@
-import sys
-import os
-import pickle
-import requests
+__version__ = "3.0.0"
+
+import sys, requests
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QRadioButton,
     QComboBox, QFileDialog, QMessageBox, QVBoxLayout, QHBoxLayout, QGridLayout, QTextEdit,
@@ -15,14 +14,10 @@ import general
 from coursera_dl import main_f
 from PyQt5.QtGui import QFontDatabase
 
-from dotenv import load_dotenv
-
 import livedb
 from threading import Thread
 import webbrowser
 
-load_dotenv()
-__version__ = os.getenv("VERSION")
 
 class MainWindow(QMainWindow):
     
@@ -40,30 +35,14 @@ class MainWindow(QMainWindow):
         self.shouldResume = False
         self.notification = ""
 
-        # Variables in the UI
-        self.inputvardict = {
-            'browser': 'edge', 
-            'ca': '',
-            'classname': '',
-            'path': '',
-            'video_resolution': '720p',
-            'sl': 'English'
-        }
-
         self.sllangschoices = general.LANG_NAME_TO_CODE_MAPPING
         self.allowed_browsers = general.ALLOWED_BROWSERS
 
-        self.argdict = self.loadargdict() # data.bin is created if not exists
-        # from localdb import SimpleDB
-        # self.localdb  = SimpleDB('data.bin')
+        from localdb import SimpleDB
+        self.localdb  = SimpleDB('data.bin')
+
+        self.argdict = self.localdb.get_full_db()['argdict']
         
-        # self.inputvardict = self.localdb.get_full_db()
-        # self.argdict =  SimpleDB('data.bin').get_full_db()
-
-        for key in self.inputvardict:
-            if key in self.argdict:
-                self.inputvardict[key] = self.argdict[key]
-
         self.initUI()
 
         # signals
@@ -72,35 +51,6 @@ class MainWindow(QMainWindow):
 
         # connect to remote database
         Thread(target=self.connect_to_db, daemon=True).start()
-
-    def connect_to_db(self):
-        id_token = livedb.authenticate_anonymously()
-        livedb.log_usage_info(id_token)
-
-        self.notification = livedb.get_notification(id_token)
-        self.show_notification_signal.emit(self.notification)  
-
-        update_available, latest_version, latest_version_build_url, update_msg = livedb.check_for_update(id_token)
-        if update_available:
-            # Emit the signal with the latest_version string
-            self.show_update_message.emit(latest_version, latest_version_build_url, update_msg)
-
-    def display_update_message(self, latest_version, latest_version_build_url=None, update_msg=None):
-        # This runs on the main (GUI) thread safely
-        msg_box = QMessageBox(self)
-        
-        msg_box.setWindowTitle("Update Available")
-        msg_box.setText(f"A new version ({latest_version}) is available. Please update the app. \n\n {f'Update log: {update_msg}' if update_msg else ''}")
-        update_btn = msg_box.addButton("Update", QMessageBox.AcceptRole)
-        later_btn = msg_box.addButton("Later", QMessageBox.RejectRole)
-        # msg_box.setIcon(QMessageBox.Information)
-        msg_box.exec_()
-
-        if msg_box.clickedButton() == update_btn and latest_version_build_url:
-            webbrowser.open(latest_version_build_url)
-        
-        # TODO: add do not show again checkbox
-        # TODO: maybe close the app when update button is clicked
 
     def initUI(self):
         # Menu
@@ -147,6 +97,10 @@ class MainWindow(QMainWindow):
         browser_label = QLabel("<i><b>Select browser where you are logged in on coursera.org:</b></i>")
         self.browser_combo = QComboBox()
         self.browser_combo.addItems(self.allowed_browsers)
+        # Set default value from localdb if present
+        default_browser = self.localdb.read('browser')
+        if default_browser in self.allowed_browsers:
+            self.browser_combo.setCurrentText(default_browser)
         browser_layout.addWidget(browser_label)
         browser_layout.addWidget(self.browser_combo)
         layout.addWidget(browser_group)
@@ -158,7 +112,7 @@ class MainWindow(QMainWindow):
 
         # Course URL
         grid.addWidget(QLabel("Course Home Page URL:"), 0, 0)
-        self.classname_edit = QLineEdit(self.inputvardict['classname'])
+        self.classname_edit = QLineEdit(self.localdb.read('argdict')['classname'])
         grid.addWidget(self.classname_edit, 0, 1)
 
         # Download folder
@@ -167,7 +121,7 @@ class MainWindow(QMainWindow):
         self.path_btn.setFixedSize(100, 20)
         self.path_btn.clicked.connect(self.getPath)
         grid.addWidget(self.path_btn, 1, 1)
-        self.path_label = QLabel(self.inputvardict['path'])
+        self.path_label = QLabel(self.localdb.read('argdict')['path'])
         grid.addWidget(self.path_label, 2, 1)
 
         # Video resolution
@@ -183,9 +137,9 @@ class MainWindow(QMainWindow):
         res_layout.addWidget(self.res_360)
         grid.addWidget(res_group, 3, 1)
         # Set checked
-        if self.inputvardict['video_resolution'] == '540p':
+        if self.localdb.read('argdict')['video_resolution'] == '540p':
             self.res_540.setChecked(True)
-        elif self.inputvardict['video_resolution'] == '360p':
+        elif self.localdb.read('argdict')['video_resolution'] == '360p':
             self.res_360.setChecked(True)
         else:
             self.res_720.setChecked(True)
@@ -195,7 +149,8 @@ class MainWindow(QMainWindow):
         self.sl_combo = QComboBox()
         self.sl_combo.addItems(sorted(self.sllangschoices.keys()))
         self.sl_combo.setFixedSize(150, 20)
-        self.sl_combo.setCurrentText(self.inputvardict['sl'])
+        key = next((k for k, v in self.sllangschoices.items() if v == self.localdb.read('argdict')['sl']), None) # find name of langugage from lang code
+        self.sl_combo.setCurrentText(key if key else 'English')  # Default to English if not found
         grid.addWidget(self.sl_combo, 4, 1)
 
                 # Download/Resume buttons
@@ -234,6 +189,36 @@ class MainWindow(QMainWindow):
         link_label.setOpenExternalLinks(True)
         layout.addWidget(link_label)
 
+    # remote database connection and update check
+    def connect_to_db(self):
+        id_token = livedb.authenticate_anonymously()
+        livedb.log_usage_info(id_token)
+
+        self.notification = livedb.get_notification(id_token)
+        self.show_notification_signal.emit(self.notification)  
+
+        update_available, latest_version, latest_version_build_url, update_msg = livedb.check_for_update(id_token)
+        if update_available:
+            # Emit the signal with the latest_version string
+            self.show_update_message.emit(latest_version, latest_version_build_url, update_msg)
+
+    def display_update_message(self, latest_version, latest_version_build_url=None, update_msg=None):
+        # This runs on the main (GUI) thread safely
+        msg_box = QMessageBox(self)
+        
+        msg_box.setWindowTitle("Update Available")
+        msg_box.setText(f"A new version ({latest_version}) is available. Please update the app. \n\n {f'Update log: {update_msg}' if update_msg else ''}")
+        update_btn = msg_box.addButton("Update", QMessageBox.AcceptRole)
+        later_btn = msg_box.addButton("Later", QMessageBox.RejectRole)
+        # msg_box.setIcon(QMessageBox.Information)
+        msg_box.exec_()
+
+        if msg_box.clickedButton() == update_btn and latest_version_build_url:
+            webbrowser.open(latest_version_build_url)
+        
+        # TODO: add do not show again checkbox
+        # TODO: maybe close the app when update button is clicked
+
     def show_notification(self, notification):
         """
         Show notification in the notification area.
@@ -250,14 +235,10 @@ class MainWindow(QMainWindow):
             self.notification_area.setCursor(QCursor(Qt.PointingHandCursor))
             self.notification_area.anchorClicked.connect(lambda url: webbrowser.open(url.toString()))
 
+    # About and Help dialogs
     def show_about(self):
-        about_text = """
-    <b>Coursera Full Course Downloader</b><br>
-    Version: {version}<br><br>
-    Developed by: Touhidul Islam<br>
-    Department of EEE, BUET<br>
-    Email: <u>touhid3.1416@gmail.com</u>
-    """.format(version=__version__)
+        from gui_components.about_text import get_about_text
+        about_text = get_about_text(__version__)
 
         dlg = QMessageBox(self)
         dlg.setWindowTitle("About - Coursera Full Course Downloader")
@@ -268,19 +249,8 @@ class MainWindow(QMainWindow):
         dlg.exec_()
 
     def show_help(self):
-        help_text = """
-    <b>USING THE PROGRAM:</b><br>
-    Using the program is very easy. Just enter the necessary things and hit download. Your download will start in a command prompt window. You can see the download progress in the command prompt window. It will take some moments for the processing to finish, and download to start.<br><br>
-    Use CTRL+V to paste URL.<br><br>
-    <b>STOP DOWNLOAD:</b><br>
-    Press CTRL+C on the command prompt window.<br><br>
-    <b>RESUME DOWNLOAD:</b><br>
-    If you want to RESUME the download later on, just provide the same information and download folder as before, and click on the Resume button instead of download. Your download will be resumed from previous position.<br><br>
-    <b>IF THE DOWNLOAD SCREEN STALLS:</b><br>
-    If the download screen does not change and does not show update for some time, then click on the command prompt window and press any button, your download should resume.<br><br>
-    <b>You can not download an entire specialization. For specialization enter url of the course within it.</b><br><br>
-    <b>FOUND A BUG?</b> Feel free to email at <u>touhid3.1416@gmail.com</u>
-    """
+        from gui_components.help_text import get_help_text
+        help_text = get_help_text()
 
         dlg = QMessageBox(self)
         dlg.setWindowTitle("Help - Coursera Full Course Downloader")
@@ -289,7 +259,8 @@ class MainWindow(QMainWindow):
         dlg.setText(help_text)
         dlg.setStandardButtons(QMessageBox.Ok)
         dlg.exec_()
-    
+
+    # Button handlers
     def downloadBtnHandler(self):
         # load cauth code automatically and store it in inputvardict
         browser = self.browser_combo.currentText()
@@ -297,29 +268,31 @@ class MainWindow(QMainWindow):
         if cauth == "":
             QMessageBox.warning(self, "Error", "Could not load authentication from  the browser.\nPlease make sure you are logged in on coursera.org in the selected browser and running the application as administrator.")
             return
-        self.inputvardict['ca'] = cauth
+        
+        self.localdb.update('argdict.ca', cauth)
 
         # Get values from widgets
-        self.inputvardict['classname'] = self.classname_edit.text()
-        self.inputvardict['path'] = self.path_label.text()
+        self.localdb.update('browser', browser)
+        self.localdb.update('argdict.classname', self.classname_edit.text())
+        self.localdb.update('argdict.path', self.path_label.text())
         if self.res_720.isChecked():
-            self.inputvardict['video_resolution'] = '720p'
+            self.localdb.update('argdict.video_resolution', '720p')
         elif self.res_540.isChecked():
-            self.inputvardict['video_resolution'] = '540p'
+            self.localdb.update('argdict.video_resolution', '540p')
         else:
-            self.inputvardict['video_resolution'] = '360p'
-        self.inputvardict['sl'] = self.sl_combo.currentText()
+            self.localdb.update('argdict.video_resolution', '360p')
+        self.localdb.update('argdict.sl', self.sl_combo.currentText())
 
         # check if path is valid
-        if self.inputvardict['path'] == '':
+        if self.localdb.read('argdict')['path'] == '':
             QMessageBox.warning(self, "Error", "NO FOLDER SPECIFIED. PLEASE SELECT A FOLDER")
             return
 
         # make argdict from inputvarlist
         self.argdict = {}
-        for key, value in self.inputvardict.items():
+        for key, value in self.localdb.get_full_db()['argdict'].items():
             if key == 'classname':
-                courseurl = self.inputvardict['classname']
+                courseurl = self.localdb.read('argdict')['classname']
                 cname = general.urltoclassname(courseurl)
                 if cname == "":
                     QMessageBox.warning(self, "Error", "INVALID COURSE NAME/ HOME PAGE URL")
@@ -327,7 +300,7 @@ class MainWindow(QMainWindow):
                 self.argdict[key] = cname
                 continue
             if key == 'sl':
-                langcode = self.sllangschoices[self.inputvardict['sl']]
+                langcode = self.sllangschoices[self.localdb.read('argdict')['sl']]
                 if langcode == '':
                     self.argdict['ignore-formats'] = "srt"
                     self.argdict[key] = 'en'
@@ -338,7 +311,8 @@ class MainWindow(QMainWindow):
             self.argdict[key] = value
 
         # save the argdict to data.bin
-        self.saveargdic()
+        # self.saveargdic()
+        self.localdb.update('argdict', self.argdict)
 
         # create command from argumentdict
         cmd = []
@@ -364,7 +338,7 @@ class MainWindow(QMainWindow):
         if self.shouldResume:
             cmd.append("--resume")
 
-        cmd = ' '.join(str(x) for x in cmd)
+        # cmd = ' '.join(str(x) for x in cmd)
         # QMessageBox.information(self, "Download", "INITIALIZING DOWNLOAD... PRESS CTRL+C TO STOP DOWNLOAD\nCheck the console for progress.")
 
         try:
@@ -387,20 +361,6 @@ class MainWindow(QMainWindow):
         dir = QFileDialog.getExistingDirectory(self, "Select Download Folder", "")
         self.path_label.setText(dir)
 
-    def loadargdict(self):
-        dic = {i: '' for i in self.inputvardict.keys()}
-        if not os.path.isfile("data.bin"):
-            with open("data.bin", 'wb') as f:
-                pickle.dump(dic, f)
-            return dic
-        else:
-            with open("data.bin", 'rb') as f:
-                dic = pickle.load(f)
-            return dic
-
-    def saveargdic(self):
-        with open("data.bin", 'wb') as f:
-            pickle.dump(self.argdict, f)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

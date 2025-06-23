@@ -1,3 +1,9 @@
+"""
+A very simple key-value database using Python's pickle module.
+It supports basic operations like create, read, update, delete.
+It also supports nested key paths for updates.
+"""
+
 import os
 import pickle
 
@@ -12,11 +18,13 @@ class SimpleDB:
             # create a database with default values
             self._save({
                 'browser': 'edge',
-                'ca': '',
-                'classname': '',
-                'path': '',
-                'video_resolution': '720p',
-                'sl': 'English'
+                'argdict':{
+                    'ca': '',
+                    'classname': '',
+                    'path': '',
+                    'video_resolution': '720p',
+                    'sl': 'en'
+                }
             })
         with open(self.filename, 'rb') as f:
             return pickle.load(f)
@@ -37,12 +45,26 @@ class SimpleDB:
         """Read the value for a given key. Returns None if not found."""
         return self._data.get(key, None)
 
-    def update(self, key, value):
-        """Update the value for an existing key."""
-        if key not in self._data:
-            raise KeyError(f"Key '{key}' not found.")
-        self._data[key] = value
+    def update(self, key_path, value):
+        """Update value at top-level key or nested key path.
+        example key_path: 'argdict.ca' or ['argdict', 'ca'].
+        Raises KeyError if the key path is invalid.
+        """
+        if isinstance(key_path, str):
+            key_path = key_path.split('.')  # support dot notation
+
+        data_ref = self._data
+        for key in key_path[:-1]:
+            if key not in data_ref or not isinstance(data_ref[key], dict):
+                raise KeyError(f"Path '{'.'.join(key_path)}' is invalid.")
+            data_ref = data_ref[key]
+
+        final_key = key_path[-1]
+        if final_key not in data_ref:
+            raise KeyError(f"Key '{final_key}' not found in path '{'.'.join(key_path)}'.")
+        data_ref[final_key] = value
         self._save(self._data)
+
 
     def delete(self, key):
         """Delete a key-value pair."""
@@ -55,7 +77,10 @@ class SimpleDB:
     def get_full_db(self):
         """Return the full dictionary."""
         return dict(self._data)
-    
+
+    def get_remote_config(self):
+        return self.read('api_key'), self.read('project_id')
+
 if __name__ == '__main__':
     db = SimpleDB()
 
