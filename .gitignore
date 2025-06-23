@@ -9,6 +9,7 @@ draft.py
 draft2.py
 features.txt
 .env
+default_databin/
 
 # ignore folder
 win64_build/

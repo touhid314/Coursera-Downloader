@@ -1,4 +1,4 @@
-__version__ = "3.0.0"
+__version__ = "2.0.0"
 
 import sys, requests
 from PyQt5.QtWidgets import (
@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QIcon, QFont, QCursor
 from PyQt5.QtCore import Qt
 from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtWidgets import QCheckBox
 
 import general
 from coursera_dl import main_f
@@ -182,12 +183,11 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.notification_area)
         self.notification_area.hide()
 
-        # Website link
-        link_label = QLabel(
-            '<a href="https://coursera-downloader.rf.gd/" style="color:#0D47A1;">http://coursera-downloader.rf.gd/</a>'
-        )
-        link_label.setOpenExternalLinks(True)
-        layout.addWidget(link_label)
+        # Footer label
+        self.footer_msg = '<a href="https://coursera-downloader.rf.gd/" style="color:#0D47A1;">http://coursera-downloader.rf.gd/</a>'
+        self.footer_label = QLabel(self.footer_msg)
+        self.footer_label.setOpenExternalLinks(True)
+        layout.addWidget(self.footer_label)
 
     # remote database connection and update check
     def connect_to_db(self):
@@ -198,23 +198,38 @@ class MainWindow(QMainWindow):
         self.show_notification_signal.emit(self.notification)  
 
         update_available, latest_version, latest_version_build_url, update_msg = livedb.check_for_update(id_token)
+
         if update_available:
             # Emit the signal with the latest_version string
-            self.show_update_message.emit(latest_version, latest_version_build_url, update_msg)
+            if self.localdb.read('show_update_prompt') != 'false':
+                self.show_update_message.emit(latest_version, latest_version_build_url, update_msg)
+            else:
+                self.footer_msg = self.footer_msg + f'   * Update available. <a href="{latest_version_build_url}">Click to update.</a>'
+                self.footer_label.setText(self.footer_msg)
 
     def display_update_message(self, latest_version, latest_version_build_url=None, update_msg=None):
-        # This runs on the main (GUI) thread safely
         msg_box = QMessageBox(self)
         
         msg_box.setWindowTitle("Update Available")
-        msg_box.setText(f"A new version ({latest_version}) is available. Please update the app. \n\n {f'Update log: {update_msg}' if update_msg else ''}")
+        msg_box.setText(
+            f"A new version ({latest_version}) is available. Please update the app."
+            f"\n\n{f'Update log: {update_msg}' if update_msg else ''}"
+        )
+
         update_btn = msg_box.addButton("Update", QMessageBox.AcceptRole)
+        dont_show_again_btn = msg_box.addButton("Don't show again", QMessageBox.DestructiveRole)
         later_btn = msg_box.addButton("Later", QMessageBox.RejectRole)
-        # msg_box.setIcon(QMessageBox.Information)
+        
         msg_box.exec_()
 
-        if msg_box.clickedButton() == update_btn and latest_version_build_url:
+        clicked = msg_box.clickedButton()
+
+        if clicked == update_btn and latest_version_build_url:
             webbrowser.open(latest_version_build_url)
+
+        elif clicked == dont_show_again_btn:
+            # Save preference to local database
+            self.localdb.create('show_update_prompt', 'false')
         
         # TODO: add do not show again checkbox
         # TODO: maybe close the app when update button is clicked
@@ -345,8 +360,10 @@ class MainWindow(QMainWindow):
             main_f(cmd)
         except KeyboardInterrupt:
             QMessageBox.information(self, "Stopped", "DOWNLOAD STOPPED, YOU CAN RESUME YOUR DOWNLOAD LATER")
+        except requests.exceptions.ConnectionError:
+            QMessageBox.warning(self, "Connection Error", "FAILED TO CONNECT TO COURSES SERVER. PLEASE CHECK YOUR INTERNET CONNECTION AND TRY AGAIN.")
         except requests.exceptions.HTTPError as e:
-            QMessageBox.warning(self, "HTTP Error", f"HTTP ERROR: {e}\nMAKE SURE YOU ARE LOGGED IN ON coursera.org ON CHROME OR FIREFOX AND YOU ARE ENROLLED INTO THE COURSE")
+            QMessageBox.warning(self, "HTTP Error", f"HTTP ERROR: {e}\nMAKE SURE YOU ARE LOGGED IN ON coursera.org ON A BROWSER AND YOU ARE ENROLLED INTO THE COURSE")
         except requests.exceptions.SSLError as e:
             QMessageBox.warning(self, "SSL Error", f"SSL ERROR: {e}")
         except Exception as e:
