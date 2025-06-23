@@ -5,10 +5,11 @@ import requests
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QRadioButton,
     QComboBox, QFileDialog, QMessageBox, QVBoxLayout, QHBoxLayout, QGridLayout, QTextEdit,
-    QMenuBar, QAction, QGroupBox
+    QMenuBar, QAction, QGroupBox, QTextBrowser
 )
 from PyQt5.QtGui import QIcon, QFont, QCursor
 from PyQt5.QtCore import Qt
+from PyQt5.QtCore import pyqtSignal
 
 import general
 from coursera_dl import main_f
@@ -18,11 +19,17 @@ from dotenv import load_dotenv
 
 import livedb
 from threading import Thread
+import webbrowser
 
 load_dotenv()
 __version__ = os.getenv("VERSION")
 
 class MainWindow(QMainWindow):
+    
+    # Signals
+    show_update_message = pyqtSignal(str,  str, str)
+    show_notification_signal = pyqtSignal(str)       # notification HTML
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Coursera Full Course Downloader")
@@ -31,6 +38,7 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon("icon/icon.ico"))
 
         self.shouldResume = False
+        self.notification = ""
 
         # Variables
         self.inputvardict = {
@@ -48,14 +56,43 @@ class MainWindow(QMainWindow):
             if key in self.argdict:
                 self.inputvardict[key] = self.argdict[key]
 
-        # connect to firebase db
-        def connect_to_db():
-            id_token = livedb.authenticate_anonymously()
-            livedb.log_usage_info(id_token)
-
-        Thread(target=connect_to_db, daemon=True).start()
-
         self.initUI()
+
+        # signals
+        self.show_update_message.connect(self.display_update_message)
+        self.show_notification_signal.connect(self.show_notification)
+
+        # connect to remote database
+        Thread(target=self.connect_to_db, daemon=True).start()
+
+    def connect_to_db(self):
+        id_token = livedb.authenticate_anonymously()
+        livedb.log_usage_info(id_token)
+
+        self.notification = livedb.get_notification(id_token)
+        self.show_notification_signal.emit(self.notification)  
+
+        update_available, latest_version, latest_version_build_url, update_msg = livedb.check_for_update(id_token)
+        if update_available:
+            # Emit the signal with the latest_version string
+            self.show_update_message.emit(latest_version, latest_version_build_url, update_msg)
+
+    def display_update_message(self, latest_version, latest_version_build_url=None, update_msg=None):
+        # This runs on the main (GUI) thread safely
+        msg_box = QMessageBox(self)
+        
+        msg_box.setWindowTitle("Update Available")
+        msg_box.setText(f"A new version ({latest_version}) is available. Please update the app. \n\n {f'Update log: {update_msg}' if update_msg else ''}")
+        update_btn = msg_box.addButton("Update", QMessageBox.AcceptRole)
+        later_btn = msg_box.addButton("Later", QMessageBox.RejectRole)
+        # msg_box.setIcon(QMessageBox.Information)
+        msg_box.exec_()
+
+        if msg_box.clickedButton() == update_btn and latest_version_build_url:
+            webbrowser.open(latest_version_build_url)
+        
+        # TODO: add do not show again checkbox
+        # TODO: maybe close the app when update button is clicked
 
     def initUI(self):
         # Menu
@@ -176,12 +213,34 @@ class MainWindow(QMainWindow):
         # Add a vertical stretch to push everything upwards
         layout.addStretch(1)
 
+        # notification area
+        self.notification_area = QTextBrowser()
+        self.notification_area.setMaximumSize(500, 100)
+        layout.addWidget(self.notification_area)
+        self.notification_area.hide()
+
         # Website link
         link_label = QLabel(
             '<a href="https://coursera-downloader.rf.gd/" style="color:#0D47A1;">http://coursera-downloader.rf.gd/</a>'
         )
         link_label.setOpenExternalLinks(True)
         layout.addWidget(link_label)
+
+    def show_notification(self, notification):
+        """
+        Show notification in the notification area.
+        If the notification is empty, hide the notification area.
+        """
+        self.notification = notification
+        if self.notification == "":
+            self.notification_area.hide()
+        else:
+            self.setMinimumSize(500, 400)  # Increase minimum size to accommodate notification area
+            self.notification_area.setHtml(self.notification)
+            self.notification_area.show()
+            self.notification_area.setOpenExternalLinks(True)
+            self.notification_area.setCursor(QCursor(Qt.PointingHandCursor))
+            self.notification_area.anchorClicked.connect(lambda url: webbrowser.open(url.toString()))
 
     def show_about(self):
         about_text = """

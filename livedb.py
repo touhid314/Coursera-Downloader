@@ -35,29 +35,32 @@ def get_latest_version(id_token):
 
     # Extract the version from Firestore document fields
     version_field = doc.get("fields", {}).get("latest_version", {})
-    return version_field.get("stringValue")
+    latest_version_build_url = doc.get("fields", {}).get("latest_version_build_url", {})
+    update_msg = doc.get("fields", {}).get("update_msg", {})
+
+    return version_field.get("stringValue"), latest_version_build_url.get("stringValue"), update_msg.get("stringValue")
 
 
 def check_for_update(id_token):
     """ Check if the current app version is up-to-date with the latest version.
         returns - 
-            True, latest version if an update is available; False, current version otherwise.
+            True, latest_version, latest_version_build_url if an update is available; False, current version otherwise.
             If the latest version cannot be determined, it returns None, current version.
     """
-    latest_version = get_latest_version(id_token)
+    latest_version, latest_version_build_url, update_msg = get_latest_version(id_token)
     current_version = os.getenv("VERSION")
 
     if latest_version and current_version:
         if version.parse(latest_version) > version.parse(current_version):
-            return True, latest_version
+            return True, latest_version, latest_version_build_url, update_msg
         else:
-            return False, current_version
+            return False, current_version, latest_version_build_url, update_msg
     else:
-        return None, current_version
+        return None, current_version, None, None
     
 
 # === push notification ===
-def get_push_notification(id_token):
+def get_notification(id_token):
     url = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/maindb/push_notification"
     headers = {"Authorization": f"Bearer {id_token}"}
     res = requests.get(url, headers=headers)
@@ -134,5 +137,5 @@ if __name__ == "__main__":
     # has_update, latest_version = check_for_update(id_token)
     # print(f"Update available: {has_update}, Latest version: {latest_version}")
 
-    print(get_push_notification(id_token))
+    print(get_notification(id_token))
 
