@@ -40,18 +40,26 @@ class MainWindow(QMainWindow):
         self.shouldResume = False
         self.notification = ""
 
-        # Variables
+        # Variables in the UI
         self.inputvardict = {
+            'browser': 'edge', 
             'ca': '',
             'classname': '',
             'path': '',
             'video_resolution': '720p',
             'sl': 'English'
         }
+
         self.sllangschoices = general.LANG_NAME_TO_CODE_MAPPING
-        self.allowed_browesers = general.ALLOWED_BROWSERS
+        self.allowed_browsers = general.ALLOWED_BROWSERS
 
         self.argdict = self.loadargdict() # data.bin is created if not exists
+        # from localdb import SimpleDB
+        # self.localdb  = SimpleDB('data.bin')
+        
+        # self.inputvardict = self.localdb.get_full_db()
+        # self.argdict =  SimpleDB('data.bin').get_full_db()
+
         for key in self.inputvardict:
             if key in self.argdict:
                 self.inputvardict[key] = self.argdict[key]
@@ -138,7 +146,7 @@ class MainWindow(QMainWindow):
         browser_group.setLayout(browser_layout)
         browser_label = QLabel("<i><b>Select browser where you are logged in on coursera.org:</b></i>")
         self.browser_combo = QComboBox()
-        self.browser_combo.addItems(self.allowed_browesers)
+        self.browser_combo.addItems(self.allowed_browsers)
         browser_layout.addWidget(browser_label)
         browser_layout.addWidget(self.browser_combo)
         layout.addWidget(browser_group)
