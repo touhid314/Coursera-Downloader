@@ -173,6 +173,11 @@ class CourseraExtractor(PlatformExtractor):
                         if download_quizzes:
                             links = course.extract_links_from_quiz(
                                 lecture.id)
+                            
+                    elif typename == 'staffGraded':
+                        logging.info(
+                            'Staff graded assignment skipped: "%s" in lecture "%s" (lecture id "%s")',
+                            lecture.slug, lecture.slug, lecture.id)
 
                     elif typename == 'exam':
                         if download_quizzes:
