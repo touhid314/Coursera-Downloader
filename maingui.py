@@ -3,22 +3,20 @@ __version__ = "3.0.0"
 import sys, requests
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QRadioButton,
-    QComboBox, QFileDialog, QMessageBox, QVBoxLayout, QHBoxLayout, QGridLayout, QTextEdit,
-    QMenuBar, QAction, QGroupBox, QTextBrowser
+    QComboBox, QFileDialog, QMessageBox, QVBoxLayout, QHBoxLayout, QGridLayout, QAction, QGroupBox, QTextBrowser
 )
-from PyQt5.QtGui import QIcon, QFont, QCursor
+from PyQt5.QtGui import QIcon, QCursor
 from PyQt5.QtCore import Qt
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QCheckBox
 
 from utils import process_notification_html
 import general
 from coursera_dl import main_f
-from PyQt5.QtGui import QFontDatabase
 
 import livedb
 from threading import Thread
 import webbrowser
+from os import path
 
 
 class MainWindow(QMainWindow):
@@ -32,7 +30,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Coursera Full Course Downloader")
         self.setMinimumSize(500, 300)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowMaximizeButtonHint) # no maximize button
-        self.setWindowIcon(QIcon("icon/icon.ico"))
+        icon_path = path.abspath(path.join(path.dirname(__file__), 'icon/icon.ico'))
+        self.setWindowIcon(QIcon(icon_path))
 
         self.shouldResume = False
         self.notification = ""
@@ -188,7 +187,7 @@ class MainWindow(QMainWindow):
         self.notification_area.hide()
 
         # Footer label
-        self.footer_msg = '<a href="https://coursera-downloader.rf.gd/" style="color:#0D47A1;">http://coursera-downloader.rf.gd/</a>'
+        self.footer_msg = '<a href="https://coursera-downloader.rf.gd/" style="color:#0D47A1;">https://coursera-downloader.rf.gd/</a>'
         self.footer_label = QLabel(self.footer_msg)
         self.footer_label.setOpenExternalLinks(True)
         layout.addWidget(self.footer_label)
@@ -360,7 +359,7 @@ class MainWindow(QMainWindow):
 
         if self.shouldResume:
             cmd.append("--resume")
-
+            cmd.append("--cache-syllabus")
         # cmd = ' '.join(str(x) for x in cmd)
         # QMessageBox.information(self, "Download", "INITIALIZING DOWNLOAD... PRESS CTRL+C TO STOP DOWNLOAD\nCheck the console for progress.")
 

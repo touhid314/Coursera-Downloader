@@ -6,10 +6,11 @@ It also supports nested key paths for updates.
 
 import os
 import pickle
+from os import path
 
 class SimpleDB:
     def __init__(self, filename='data.bin'):
-        self.filename = filename
+        self.filename = path.abspath(path.join(path.dirname(__file__), filename)) # use this, so that, in bundled package the file is in the same directory as the script also
         self._data = self._load()
 
     def _load(self):

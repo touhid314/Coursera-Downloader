@@ -13,8 +13,9 @@ manual_test.txt
 notification_img.*
 
 # ignore folder
-win64_build/
+win64_builds/
 __pycache__/
 img/
 .vscode/
 default_databin/
+dist/

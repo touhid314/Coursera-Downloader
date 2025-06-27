@@ -22,7 +22,7 @@ LANG_NAME_TO_CODE_MAPPING = {'Arabic': 'ar', 'Afrikaans': 'af',
                              'Vietnamese': 'vi',
                              '-ALL AVAILABLE': 'all', '-NONE': ''}
 
-ALLOWED_BROWSERS = ["edge", "firefox", "brave", "opera", "opera_gx"]
+ALLOWED_BROWSERS = ["edge", "firefox", "brave"]
 
 # extract class name from course home page url
 def urltoclassname(homepageurl):
@@ -62,30 +62,29 @@ def loadcauth(domain:str, browser:str):
     cauth = ""
 
     if browser not in ALLOWED_BROWSERS:
+        print(f"Browser not supported. Please login on one of these browsers: {', '.join(ALLOWED_BROWSERS)}")
         return cauth
-    
-    try:
-        if browser == "firefox":
-            # works even when script is run without admin access
-            cookies = rookiepy.firefox(["coursera.org"])
-        elif browser == "edge":
-            # works only when script is run with admin access
-            cookies = rookiepy.edge(["coursera.org"])
-        elif browser == "brave":
-            # TODO: untested
-            cookies = rookiepy.brave(["coursera.org"])
-        elif browser == "opera":
-            # TODO: untested
-            cookies = rookiepy.opera(["coursera.org"])
-        elif browser == "opera_gx":
-            # TODO:untested
-            cookies = rookiepy.opera_gx(["coursera.org"])
-        else:
-            print("Browser not supported. Please login on firefox, edge, brave, opera or opera gx.")
+    else:
+        try:
+            if browser == "firefox":
+                # works even when script is run without admin access
+                cookies = rookiepy.firefox([domain])
+            elif browser == "edge":
+                # works only when script is run with admin access
+                cookies = rookiepy.edge([domain])
+            elif browser == "brave":
+                # works only when script is run with admin access
+                cookies = rookiepy.brave([domain])
+            # elif browser == "opera":
+            #     # does not work, throws error
+            #     cookies = rookiepy.opera([domain])
+            # elif browser == "opera_gx":
+            #     # does not work, throws error
+            #     cookies = rookiepy.opera_gx([domain])
+        except Exception as e:
+            print(f"Error fetching cookies: {e}")
+            print(f"Could not fetch authentication. Maybe run the app as administrator.")
             return cauth
-    except Exception as e:
-        print(f"Could not fetch authentication. Maybe run the app as administrator.")
-        return cauth
 
     for cookie in cookies:
             if cookie['name'] == "CAUTH":
@@ -119,5 +118,5 @@ def move_to_first(dictionary, key):
 # cn = urltoclassname(url)
 # print(cn)
 if __name__ == "__main__":
-    ca = loadcauth('coursera.org', browser='edge')
+    ca = loadcauth('coursera.org', browser='opera_gx')
     print(ca)
