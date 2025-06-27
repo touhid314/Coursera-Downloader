@@ -1,8 +1,8 @@
-# Coursera-Downloader
+# Coursera Full Course Downloader
 
-A GUI for easy downloading of coursera courses
+A GUI for easy downloading of Coursera courses.
 
-Site for downloading the windows app: http://coursera-downloader.rf.gd/
+Site for downloading the Windows app: https://coursera-downloader.rf.gd/
 
 # Description
 
