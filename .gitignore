@@ -1,6 +1,7 @@
 # ignore extensions
 # *.bin
 *.json
+*.spec
 
 # ignore files
 notes.txt
@@ -11,6 +12,7 @@ features.txt
 .env
 manual_test.txt
 notification_img.*
+
 
 # ignore folder
 win64_builds/
