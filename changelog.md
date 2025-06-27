@@ -6,7 +6,7 @@
 - UI update.
 - Some minor UI bugs solved.
 - Can check for app updates.
-- Anonymously logs user country and app open time to remote server for analyzing total app users.
+- Anonymously logs user country and app open time for analyzing total app users.
 - Can show notifications from remote server.
 - Organized the repo, deleted the old code.
 - Fixed Chinese subtitle code to `zh-CN`.
