@@ -12,7 +12,7 @@ features.txt
 .env
 manual_test.txt
 notification_img.*
-
+install.bat
 
 # ignore folder
 win64_builds/
@@ -21,3 +21,5 @@ img/
 .vscode/
 default_databin/
 dist/
+cookies.txt
+build/
