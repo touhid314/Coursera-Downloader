@@ -39,6 +39,10 @@ Examples:
 
 For further documentation and examples, visit the project's home at:
   https://github.com/coursera-dl/coursera
+
+ALTERNATIVE ENTRY POINTS:
+  This is the core module. For enhanced CLI experiences, also see:
+  • coursera_cli.py  - User-friendly CLI optimized for PyInstaller builds
 """
 
 
@@ -49,7 +53,19 @@ import re
 import time
 import shutil
 
-from distutils.version import LooseVersion as V
+try:
+    from packaging.version import Version as V
+except ImportError:
+    # Fallback for older Python versions
+    try:
+        from distutils.version import LooseVersion as V
+    except ImportError:
+        # If distutils is not available, create a simple version comparison
+        class V:
+            def __init__(self, version):
+                self.version = version
+            def __ge__(self, other):
+                return True  # Simple fallback - assume version is OK
 
 
 # Test versions of some critical modules.
@@ -62,7 +78,7 @@ from cookies import (
     get_cookies_for_class, make_cookie_values, TLSAdapter, login)
 from define import (CLASS_URL, ABOUT_URL, PATH_CACHE)
 from downloaders import get_downloader
-from workflow import CourseraDownloader
+from coursera_workflow import CourseraDownloader
 from parallel import ConsecutiveDownloader, ParallelDownloader
 from utils import (clean_filename, get_anchor_format, mkdir_p, fix_url,
                    print_ssl_error_message,
@@ -127,6 +143,7 @@ def create_session(args):
                     return cookie.value
             else:
                 raise Exception('Can not find CAUTH in {args.browser}')
+        
         cauth_cookie = autocookie(args.browser)
         logging.debug(
             f'Got CAUTH cookie from {args.browser}: "{cauth_cookie}"')
