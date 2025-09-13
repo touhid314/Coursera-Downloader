@@ -1,5 +1,8 @@
 # Changelog
 
+## v3.0.1
+- Updated maingui so that interface does not break on high dpi display
+
 ## v3.0.0
 - Stopped using Tkinter and switched to PyQt.
 - Download path cannot contain spaces – bug solved.
