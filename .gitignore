@@ -15,9 +15,11 @@ notification_img.*
 
 
 # ignore folder
-win64_builds/
+win64_build/
+build/
 __pycache__/
 img/
 .vscode/
 default_databin/
 dist/
+.venv/

@@ -23,7 +23,7 @@ class MainWindow(QMainWindow):
     
     # Signals
     show_update_message = pyqtSignal(str,  str, str)
-    show_notification_signal = pyqtSignal(str)       # notification HTML
+    show_notification_signal = pyqtSignal(str)      # notification HTML
 
     def __init__(self):
         super().__init__()
@@ -119,7 +119,7 @@ class MainWindow(QMainWindow):
         # Download folder
         grid.addWidget(QLabel("Download Folder:"), 1, 0)
         self.path_btn = QPushButton("Select Folder")
-        self.path_btn.setFixedSize(100, 20)
+        # self.path_btn.setFixedSize(100, 20) # FIX: Removed fixed size to allow scaling
         self.path_btn.clicked.connect(self.getPath)
         grid.addWidget(self.path_btn, 1, 1)
         self.path_label = QLabel(self.localdb.read('argdict')['path'])
@@ -149,7 +149,7 @@ class MainWindow(QMainWindow):
         grid.addWidget(QLabel("Subtitle Language:"), 4, 0)
         self.sl_combo = QComboBox()
         self.sl_combo.addItems(sorted(self.sllangschoices.keys()))
-        self.sl_combo.setFixedSize(150, 20)
+        # self.sl_combo.setFixedSize(150, 20) # FIX: Removed fixed size to allow scaling
         key = next((k for k, v in self.sllangschoices.items() if v == self.localdb.read('argdict')['sl']), None) # find name of langugage from lang code
         self.sl_combo.setCurrentText(key if key else 'English')  # Default to English if not found
         grid.addWidget(self.sl_combo, 4, 1)
@@ -162,29 +162,37 @@ class MainWindow(QMainWindow):
 
         # Resume Button
         self.resume_btn = QPushButton("Resume")
-        self.resume_btn.setFixedSize(100, 30)
+        # self.resume_btn.setFixedSize(100, 30) # FIX: Removed fixed size to allow scaling
         self.resume_btn.clicked.connect(self.resumeBtnHandler)
         btn_layout.addWidget(self.resume_btn)
 
         # Download Button
         self.download_btn = QPushButton("Download")
-        self.download_btn.setFixedSize(100, 30)
+        # self.download_btn.setFixedSize(100, 30) # FIX: Removed fixed size to allow scaling
         self.download_btn.clicked.connect(self.downloadBtnHandler)
         btn_layout.addWidget(self.download_btn)
 
         layout.addLayout(btn_layout)
 
-        # Add a vertical stretch to push everything upwards
-        layout.addStretch(1)
-
         # notification area
         self.notification_area = QTextBrowser()
-        self.notification_area.setMaximumSize(500, 100)
+        # self.notification_area.setMaximumSize(500, 100) # FIX: Changed to only set max height
+        self.notification_area.setMaximumHeight(100) # FIX: Constrain height only, allowing width to be flexible
         self.notification_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.notification_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
-        layout.addWidget(self.notification_area)
-        self.notification_area.hide()
+        # Wrap the notification area in a fixed-height container to prevent layout shifting
+        self.notification_container = QWidget()
+        notif_layout = QVBoxLayout()
+        notif_layout.setContentsMargins(0, 0, 0, 0)
+        notif_layout.addWidget(self.notification_area)
+        self.notification_container.setLayout(notif_layout)
+        self.notification_container.setFixedHeight(100)  # Reserve height
+        layout.addWidget(self.notification_container)
+        self.notification_area.setVisible(False)
+
+        # Add a vertical stretch to push everything upwards
+        layout.addStretch(1)
 
         # Footer label
         self.footer_msg = '<a href="https://coursera-downloader.rf.gd/" style="color:#0D47A1;">https://coursera-downloader.rf.gd/</a>'
@@ -246,13 +254,13 @@ class MainWindow(QMainWindow):
         if self.notification == "":
             self.notification_area.hide()
         else:
-            self.setMinimumSize(500, 400)  # Increase minimum size to accommodate notification area
+            # self.setMinimumSize(500, 400)  # FIX: Removed this line. The layout will handle resizing.
         
             # Process notification HTML to download images and replace src if there is an <img> tag
             processed_notification = process_notification_html(self.notification)
 
             self.notification_area.setHtml(processed_notification)
-            self.notification_area.show()
+            self.notification_area.setVisible(True)
             self.notification_area.setOpenExternalLinks(True)
             self.notification_area.setCursor(QCursor(Qt.PointingHandCursor))
             self.notification_area.anchorClicked.connect(lambda url: webbrowser.open(url.toString()))
@@ -387,6 +395,10 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == "__main__":
+    # FIX: Add these two lines to enable High DPI scaling
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+
     app = QApplication(sys.argv)
     win = MainWindow()
     win.show()
