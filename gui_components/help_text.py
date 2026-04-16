@@ -9,6 +9,10 @@ def get_help_text():
     If you want to RESUME the download later on, just provide the same information and download folder as before, and click on the Resume button instead of download. Your download will be resumed from previous position.<br><br>
     <b>IF THE DOWNLOAD SCREEN STALLS:</b><br>
     If the download screen does not change and does not show update for some time, then click on the command prompt window and press any button, your download should resume.<br><br>
+    <b>IF BROWSER LOGIN DETECTION FAILS:</b><br>
+    You can paste the Coursera <code>CAUTH</code> cookie into the optional field in the main window instead of loading authentication from the browser automatically.<br><br>
+    <b>ENROLLED COURSES:</b><br>
+    The main window can load your enrolled courses. Click Refresh if needed, then choose a course to automatically fill the course URL field.<br><br>
     <b>You can not download an entire specialization. For specialization enter url of the course within it.</b><br><br>
     <b>FOUND A BUG?</b> Feel free to email at <u>touhid3.1416@gmail.com</u>
     """
