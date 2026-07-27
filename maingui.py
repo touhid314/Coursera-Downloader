@@ -359,7 +359,6 @@ class MainWindow(QMainWindow):
 
         cmd.append('--download-quizzes')
         cmd.append('--download-notebooks')
-        cmd.append('--disable-url-skipping')
         cmd.append('--unrestricted-filenames')
         cmd.append('--combined-section-lectures-nums')
         cmd.append('--jobs')
@@ -375,8 +374,15 @@ class MainWindow(QMainWindow):
             main_f(cmd)
         except KeyboardInterrupt:
             QMessageBox.information(self, "Stopped", "DOWNLOAD STOPPED, YOU CAN RESUME YOUR DOWNLOAD LATER")
-        except requests.exceptions.ConnectionError:
-            QMessageBox.warning(self, "Connection Error", "FAILED TO CONNECT TO COURSES SERVER. PLEASE CHECK YOUR INTERNET CONNECTION AND TRY AGAIN.")
+        except requests.exceptions.ConnectionError as e:
+            QMessageBox.warning(
+                self,
+                "Connection Error",
+                "FAILED TO CONNECT TO COURSERA OR A RESOURCE URL.\n\n"
+                "Please check your internet connection and try again.\n"
+                "If this keeps happening, use Resume Download.\n\n"
+                f"Details: {e}"
+            )
         except requests.exceptions.HTTPError as e:
             QMessageBox.warning(self, "HTTP Error", f"HTTP ERROR: {e}\nMAKE SURE YOU ARE LOGGED IN ON coursera.org ON A BROWSER AND YOU ARE ENROLLED INTO THE COURSE")
         except requests.exceptions.SSLError as e:

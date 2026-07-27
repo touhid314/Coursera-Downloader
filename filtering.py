@@ -63,6 +63,20 @@ def skip_format_url(format_, url):
     if parsed.hostname == 'localhost':
         return True
 
+    # Skip third-party website links from supplements (e.g. blog/home pages).
+    # Coursera videos/assets are hosted on coursera.org or CloudFront.
+    if parsed.hostname:
+        host = parsed.hostname.lower()
+        trusted_suffixes = (
+            'coursera.org',
+            'coursera.com',
+            'cloudfront.net',
+            'amazonaws.com',
+            'googleusercontent.com',
+        )
+        if not any(host == s or host.endswith('.' + s) for s in trusted_suffixes):
+            return True
+
     # These are trusted manually added formats, do not skip them
     if RE_VALID_FORMATS.match(format_):
         return False

@@ -8,6 +8,9 @@ to parse course syllabus.
 import abc
 import json
 import logging
+import time
+
+import requests
 
 from api import (CourseraOnDemand, OnDemandCourseMaterialItemsV1,
                  ModulesV1, LessonsV1, ItemsV2)
@@ -65,10 +68,19 @@ class CourseraExtractor(PlatformExtractor):
 
         url = OPENCOURSE_ONDEMAND_COURSE_MATERIALS_V2.format(
             class_name=class_name)
-        page = get_page(self._session, url)
-        logging.debug('Downloaded %s (%d bytes)', url, len(page))
-
-        return page
+        last_error = None
+        for attempt in range(1, 4):
+            try:
+                page = get_page(self._session, url)
+                logging.debug('Downloaded %s (%d bytes)', url, len(page))
+                return page
+            except requests.exceptions.RequestException as e:
+                last_error = e
+                logging.warning(
+                    'Failed to fetch syllabus (attempt %d/3): %s', attempt, e)
+                if attempt < 3:
+                    time.sleep(2 ** attempt)
+        raise last_error
 
     def _parse_on_demand_syllabus(self, course_name, page, reverse=False,
                                   unrestricted_filenames=False,

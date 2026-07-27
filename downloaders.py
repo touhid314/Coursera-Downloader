@@ -338,7 +338,16 @@ class NativeDownloader(Downloader):
         attempts_count = 0
         error_msg = ''
         while attempts_count < max_attempts:
-            r = self.session.get(url, stream=True, headers=headers)
+            try:
+                r = self.session.get(url, stream=True, headers=headers)
+            except requests.exceptions.RequestException as e:
+                error_msg = str(e)
+                wait_interval = 2 ** (attempts_count + 1)
+                print('Error downloading, will retry in {0} seconds ...'
+                      .format(wait_interval))
+                time.sleep(wait_interval)
+                attempts_count += 1
+                continue
 
             if r.status_code != 200:
                 # because in resume state we are downloading only a

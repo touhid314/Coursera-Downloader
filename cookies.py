@@ -374,12 +374,15 @@ def get_cookies_for_class(session, class_name,
 
 class TLSAdapter(HTTPAdapter):
     """
-    A customized HTTP Adapter which uses TLS v1.2 for encrypted
-    connections.
+    A customized HTTP Adapter which uses a modern TLS client context.
     """
 
     def init_poolmanager(self, connections, maxsize, block=False):
+        ctx = ssl.create_default_context()
+        # Prefer TLS 1.2+; leave upper bound to the OpenSSL default.
+        if hasattr(ssl, 'TLSVersion'):
+            ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         self.poolmanager = PoolManager(num_pools=connections,
                                        maxsize=maxsize,
                                        block=block,
-                                       ssl_version=ssl.PROTOCOL_TLSv1_2)
+                                       ssl_context=ctx)

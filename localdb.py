@@ -18,7 +18,7 @@ class SimpleDB:
         if not os.path.exists(self.filename):
             # create a database with default values
             self._save({
-                'browser': 'edge',
+                'browser': 'firefox',
                 'argdict':{
                     'ca': '',
                     'classname': '',

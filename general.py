@@ -22,7 +22,7 @@ LANG_NAME_TO_CODE_MAPPING = {'Arabic': 'ar', 'Afrikaans': 'af',
                              'Vietnamese': 'vi',
                              '-ALL AVAILABLE': 'all', '-NONE': ''}
 
-ALLOWED_BROWSERS = ["edge", "firefox", "brave"]
+ALLOWED_BROWSERS = ["firefox", "edge", "brave"]
 
 # extract class name from course home page url
 def urltoclassname(homepageurl):
@@ -41,7 +41,7 @@ def urltoclassname(homepageurl):
         return homepageurl
     else:
         # it's a url
-        classname = re.findall('coursera\.org/learn/([^/?]+)', homepageurl.lower())
+        classname = re.findall(r'coursera\.org/learn/([^/?]+)', homepageurl.lower())
         if len(classname) > 0:
             classname = classname[0]  # if multiple match, take only the first one
         else:

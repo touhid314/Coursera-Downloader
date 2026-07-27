@@ -4,12 +4,16 @@ import requests
 import json
 from datetime import datetime, timezone
 import platform
-from packaging import version
+import re
 
 from localdb import SimpleDB
 from maingui import __version__
 
 API_KEY, PROJECT_ID = SimpleDB().get_remote_config()
+
+
+def _version_key(value):
+    return tuple(int(part) for part in re.findall(r'\d+', value))
 
 # === Authentication ===
 def authenticate_anonymously():
@@ -41,7 +45,7 @@ def check_for_update(id_token):
 
     if latest_version and current_version:
         try:
-            if version.parse(latest_version) > version.parse(current_version):
+            if _version_key(latest_version) > _version_key(current_version):
                 return True, latest_version, latest_version_build_url, update_msg
             else:
                 return False, current_version, latest_version_build_url, update_msg

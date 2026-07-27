@@ -49,8 +49,6 @@ import re
 import time
 import shutil
 
-from distutils.version import LooseVersion as V
-
 
 # Test versions of some critical modules.
 # We may, perhaps, want to move these elsewhere.
@@ -78,8 +76,13 @@ from extractors import CourseraExtractor
 # URL containing information about outdated modules
 _SEE_URL = " See https://github.com/coursera-dl/coursera/issues/139"
 
-assert V(requests.__version__) >= V('2.4'), "Upgrade requests!" + _SEE_URL
-assert V(bs4.__version__) >= V('4.1'), "Upgrade bs4!" + _SEE_URL
+
+def _version_key(version):
+    return tuple(int(part) for part in re.findall(r'\d+', version))
+
+
+assert _version_key(requests.__version__) >= _version_key('2.4'), "Upgrade requests!" + _SEE_URL
+assert _version_key(bs4.__version__) >= _version_key('4.1'), "Upgrade bs4!" + _SEE_URL
 
 
 def get_session():
@@ -96,7 +99,7 @@ def get_session():
 def create_session(args):
     session = get_session()
     if args.cookies_cauth:
-        session.cookies.set('CAUTH', args.cookies_cauth)
+        session.cookies.set('CAUTH', args.cookies_cauth, domain='.coursera.org', path='/')
     elif args.browser:
         def autocookie(browser):
             import browser_cookie3
@@ -130,7 +133,7 @@ def create_session(args):
         cauth_cookie = autocookie(args.browser)
         logging.debug(
             f'Got CAUTH cookie from {args.browser}: "{cauth_cookie}"')
-        session.cookies.set('CAUTH', cauth_cookie)
+        session.cookies.set('CAUTH', cauth_cookie, domain='.coursera.org', path='/')
     else:
         login(session, args.username, args.password)
     return session
@@ -180,7 +183,7 @@ def download_on_demand_class(session, args, class_name):
             args.download_notebooks
         )
 
-    if is_debug_run or args.cache_syllabus():
+    if is_debug_run() or args.cache_syllabus:
         spit_json(modules, cached_syllabus_filename)
 
     if args.only_syllabus:

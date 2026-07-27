@@ -572,7 +572,7 @@ class SpecializationV1(object):
             dom = get_page(session, OPENCOURSE_ONDEMAND_SPECIALIZATIONS_V1,
                            json=True, quiet=True,
                            class_name=class_name)
-        except requests.exceptions.HTTPError as e:
+        except requests.exceptions.RequestException as e:
             logging.debug('Could not expand %s: %s', class_name, e)
             return None
 
@@ -641,7 +641,7 @@ class CourseraOnDemand(object):
             session_id = self._get_exam_session_id(exam_id)
             exam_json = self._get_exam_json(exam_id, session_id)
             return self._convert_quiz_json_to_links(exam_json, 'exam')
-        except requests.exceptions.HTTPError as exception:
+        except requests.exceptions.RequestException as exception:
             logging.error('Could not download exam %s: %s', exam_id, exception)
             if is_debug_run():
                 logging.exception(
@@ -767,7 +767,7 @@ class CourseraOnDemand(object):
             authorizationId = self._extract_notebook_text(notebook_id)
             ret = self._get_notebook_json(notebook_id, authorizationId)
             return ret
-        except requests.exceptions.HTTPError as exception:
+        except requests.exceptions.RequestException as exception:
             logging.error('Could not download notebook %s: %s',
                           notebook_id, exception)
             if is_debug_run():
@@ -780,7 +780,7 @@ class CourseraOnDemand(object):
             session_id = self._get_quiz_session_id(quiz_id)
             quiz_json = self._get_quiz_json(quiz_id, session_id)
             return self._convert_quiz_json_to_links(quiz_json, 'quiz')
-        except requests.exceptions.HTTPError as exception:
+        except requests.exceptions.RequestException as exception:
             logging.error('Could not download quiz %s: %s', quiz_id, exception)
             if is_debug_run():
                 logging.exception(
@@ -886,7 +886,7 @@ class CourseraOnDemand(object):
                 links, self._extract_links_from_lecture_assets(assets))
 
             return links
-        except requests.exceptions.HTTPError as exception:
+        except requests.exceptions.RequestException as exception:
             logging.error('Could not download lecture %s: %s',
                           video_id, exception)
             if is_debug_run():
@@ -1158,7 +1158,7 @@ class CourseraOnDemand(object):
             extend_supplement_links(
                 supplement_links, {IN_MEMORY_EXTENSION: [instructions]})
             return supplement_links
-        except requests.exceptions.HTTPError as exception:
+        except requests.exceptions.RequestException as exception:
             logging.error('Could not download programming assignment %s: %s',
                           element_id, exception)
             if is_debug_run():
@@ -1192,7 +1192,7 @@ class CourseraOnDemand(object):
             extend_supplement_links(
                 supplement_links, {IN_MEMORY_EXTENSION: [instructions]})
             return supplement_links
-        except requests.exceptions.HTTPError as exception:
+        except requests.exceptions.RequestException as exception:
             logging.error('Could not download programming assignment %s: %s',
                           element_id, exception)
             if is_debug_run():
@@ -1226,7 +1226,7 @@ class CourseraOnDemand(object):
             extend_supplement_links(
                 supplement_links, {IN_MEMORY_EXTENSION: [instructions]})
             return supplement_links
-        except requests.exceptions.HTTPError as exception:
+        except requests.exceptions.RequestException as exception:
             logging.error('Could not download peer assignment %s: %s',
                           element_id, exception)
             if is_debug_run():
@@ -1272,7 +1272,7 @@ class CourseraOnDemand(object):
                     supplement_content, {IN_MEMORY_EXTENSION: [instructions]})
 
             return supplement_content
-        except requests.exceptions.HTTPError as exception:
+        except requests.exceptions.RequestException as exception:
             logging.error('Could not download supplement %s: %s',
                           element_id, exception)
             if is_debug_run():
@@ -1337,7 +1337,7 @@ class CourseraOnDemand(object):
             logging.info('Downloaded resource poll (%d bytes)', len(dom))
             return dom['elements']
 
-        except requests.exceptions.HTTPError as exception:
+        except requests.exceptions.RequestException as exception:
             logging.error('Could not download resource section: %s',
                           exception)
             if is_debug_run():
@@ -1382,7 +1382,7 @@ class CourseraOnDemand(object):
                     resource_content, {IN_MEMORY_EXTENSION: [instructions]})
 
             return resource_content
-        except requests.exceptions.HTTPError as exception:
+        except requests.exceptions.RequestException as exception:
             logging.error('Could not download supplement %s: %s',
                           short_id, exception)
             if is_debug_run():
