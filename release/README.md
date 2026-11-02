@@ -50,8 +50,9 @@ Run all commands from the project root.
     git push origin v4.0.0
     ```
 
-11. Create the GitHub release and upload the installer from
-    `release/artifacts/installers/`.
+11. Pushing the tag starts `.github/workflows/release.yml`. It runs the tests,
+    builds the portable app and installer on Windows, and creates the GitHub
+    release with both downloads and their SHA-256 checksums.
 12. Update the project website's download link to the new GitHub release and
     verify the public download from a browser.
 

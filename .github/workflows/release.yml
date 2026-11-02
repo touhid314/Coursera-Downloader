@@ -1,0 +1,104 @@
+name: Windows release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out the tagged source
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Verify the tag and run tests
+        shell: pwsh
+        run: |
+          $version = python -c "import src; print(src.__version__)"
+          if ($env:GITHUB_REF_NAME -ne "v$version") {
+            throw "Tag $env:GITHUB_REF_NAME does not match app version $version"
+          }
+          python -m unittest discover -s tests -v
+
+      - name: Build the portable application
+        run: >-
+          python -m PyInstaller release/config/pyinstaller.spec
+          --noconfirm --clean
+          --distpath release/artifacts/app
+          --workpath release/work
+
+      - name: Create the portable ZIP
+        shell: pwsh
+        run: |
+          $zip = "release/artifacts/CourseraDownloader-$env:GITHUB_REF_NAME-win64.zip"
+          Compress-Archive `
+            -Path "release/artifacts/app/CourseraDownloader" `
+            -DestinationPath $zip `
+            -CompressionLevel Optimal
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path -LiteralPath $iscc)) {
+            throw "Inno Setup compiler was not found at $iscc"
+          }
+          & $iscc "release\config\installer.iss"
+
+      - name: Write SHA-256 checksums
+        shell: pwsh
+        run: |
+          $files = @(
+            Get-ChildItem "release/artifacts/installers" -Filter "*.exe" -File
+            Get-ChildItem "release/artifacts" -Filter "*.zip" -File
+          )
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash *$($file.Name)"
+          }
+          $lines | Set-Content "release/artifacts/SHA256SUMS.txt" -Encoding ascii
+
+      - name: Publish the GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $installer = (Get-ChildItem "release/artifacts/installers" -Filter "*.exe" -File | Select-Object -First 1).FullName
+          $zip = (Get-ChildItem "release/artifacts" -Filter "*.zip" -File | Select-Object -First 1).FullName
+          $checksums = (Resolve-Path "release/artifacts/SHA256SUMS.txt").Path
+          $arguments = @(
+            "release", "create", $tag,
+            $installer, $zip, $checksums,
+            "--verify-tag",
+            "--title", "Coursera Full Course Downloader $tag"
+          )
+          $notes = "release/notes/$tag.md"
+          if (Test-Path -LiteralPath $notes) {
+            $arguments += @("--notes-file", $notes)
+          } else {
+            $arguments += "--generate-notes"
+          }
+          gh @arguments
