@@ -17,11 +17,11 @@ from collections import namedtuple, OrderedDict
 from urllib.parse import quote_plus
 import attr
 
-from utils import (BeautifulSoup, make_coursera_absolute_url,
+from .utils import (BeautifulSoup, make_coursera_absolute_url,
                     extend_supplement_links, clean_url, clean_filename,
                     is_debug_run, unescape_html)
-from network import get_reply, get_page, post_page_and_reply
-from define import (OPENCOURSE_SUPPLEMENT_URL,
+from .network import get_reply, get_page, post_page_and_reply
+from .define import (OPENCOURSE_SUPPLEMENT_URL,
                      OPENCOURSE_PROGRAMMING_ASSIGNMENTS_URL,
                      OPENCOURSE_ASSET_URL,
                      OPENCOURSE_ASSETS_URL,
@@ -57,7 +57,7 @@ from define import (OPENCOURSE_SUPPLEMENT_URL,
                      IN_MEMORY_MARKER)
 
 
-from cookies import prepare_auth_headers
+from .cookies import prepare_auth_headers
 
 
 class QuizExamToMarkupConverter(object):
@@ -576,8 +576,15 @@ class SpecializationV1(object):
             logging.debug('Could not expand %s: %s', class_name, e)
             return None
 
-        return SpecializationV1(
-            [course['slug'] for course in dom['linked']['courses.v1']])
+        # 'linked' is in no particular order; courseIds has the course order.
+        slugs = {course['id']: course['slug']
+                 for course in dom['linked']['courses.v1']}
+        elements = dom.get('elements') or [{}]
+        ordered_ids = [course_id for course_id in elements[0].get('courseIds', [])
+                       if course_id in slugs]
+        ordered_ids += [course_id for course_id in slugs
+                        if course_id not in ordered_ids]
+        return SpecializationV1([slugs[course_id] for course_id in ordered_ids])
 
 
 class CourseraOnDemand(object):

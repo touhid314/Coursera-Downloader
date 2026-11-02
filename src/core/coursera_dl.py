@@ -48,6 +48,7 @@ import os
 import re
 import time
 import shutil
+import copy
 
 from distutils.version import LooseVersion as V
 
@@ -57,22 +58,23 @@ from distutils.version import LooseVersion as V
 import bs4
 import requests
 
-from cookies import (
+from .cookies import (
     AuthenticationFailed, ClassNotFound,
     get_cookies_for_class, make_cookie_values, TLSAdapter, login)
-from define import (CLASS_URL, ABOUT_URL, PATH_CACHE)
-from downloaders import get_downloader
-from workflow import CourseraDownloader
-from parallel import ConsecutiveDownloader, ParallelDownloader
-from utils import (clean_filename, get_anchor_format, mkdir_p, fix_url,
+from .define import (CLASS_URL, ABOUT_URL, PATH_CACHE)
+from . import download_progress
+from .downloaders import DOWNLOAD_TIMEOUT, get_downloader
+from .workflow import CourseraDownloader
+from .parallel import ConsecutiveDownloader, ParallelDownloader
+from .utils import (clean_filename, get_anchor_format, mkdir_p, fix_url,
                    print_ssl_error_message,
                    BeautifulSoup, is_debug_run,
                    spit_json, slurp_json)
 
-from api import expand_specializations
-from network import get_page, get_page_and_url
-from commandline import parse_args
-from extractors import CourseraExtractor
+from .api import SpecializationV1
+from .network import get_page, get_page_and_url
+from .commandline import parse_args
+from .extractors import CourseraExtractor
 
 
 # URL containing information about outdated modules
@@ -82,12 +84,53 @@ assert V(requests.__version__) >= V('2.4'), "Upgrade requests!" + _SEE_URL
 assert V(bs4.__version__) >= V('4.1'), "Upgrade bs4!" + _SEE_URL
 
 
+# Video links in the syllabus are signed with an expiry time. A saved syllabus
+# is reused while its links stay valid for at least this many more seconds.
+SYLLABUS_LINK_MIN_VALIDITY = 30 * 60
+
+
+def load_syllabus_cache(filename):
+    """Return the saved syllabus, or None if missing or its links expire soon."""
+    try:
+        with open(filename, encoding='utf-8') as file_object:
+            text = file_object.read()
+        modules = json.loads(text)
+    except (OSError, ValueError):
+        return None
+
+    expiry_times = [int(t) for t in re.findall(r'[?&]Expires=(\d+)', text)]
+    if expiry_times and min(expiry_times) - time.time() < SYLLABUS_LINK_MIN_VALIDITY:
+        logging.info('Saved syllabus links have expired; reading it again')
+        return None
+    return modules
+
+
+def save_syllabus_cache(modules, filename):
+    try:
+        spit_json(modules, filename)
+    except OSError as e:
+        logging.warning('Could not save the syllabus for resuming: %s', e)
+
+
+class StoppableSession(requests.Session):
+    """
+    Session that stops at the next request once the user has asked to stop,
+    and that cannot hang forever on a stalled connection.
+    """
+
+    def send(self, request, **kwargs):
+        download_progress.check_cancelled()
+        if kwargs.get('timeout') is None:
+            kwargs['timeout'] = DOWNLOAD_TIMEOUT
+        return super().send(request, **kwargs)
+
+
 def get_session():
     """
     Create a session with TLS v1.2 certificate.
     """
 
-    session = requests.Session()
+    session = StoppableSession()
     session.mount('https://', TLSAdapter())
 
     return session
@@ -164,11 +207,17 @@ def download_on_demand_class(session, args, class_name):
 
     error_occurred = False
     extractor = CourseraExtractor(session)
+    download_progress.emit('syllabus')
 
-    cached_syllabus_filename = '%s-syllabus-parsed.json' % class_name
-    if args.cache_syllabus and os.path.isfile(cached_syllabus_filename):
-        modules = slurp_json(cached_syllabus_filename)
-    else:
+    # The syllabus holds links for one resolution and subtitle language. It is
+    # kept in the user's cache folder, which unlike the app folder is writable.
+    cached_syllabus_filename = os.path.join(
+        PATH_CACHE, '%s-%s-%s-syllabus-parsed.json' % (
+            class_name, args.video_resolution, args.subtitle_language))
+    modules = None
+    if args.cache_syllabus:
+        modules = load_syllabus_cache(cached_syllabus_filename)
+    if modules is None:
         error_occurred, modules = extractor.get_modules(
             class_name,
             args.reverse,
@@ -179,9 +228,7 @@ def download_on_demand_class(session, args, class_name):
             args.mathjax_cdn_url,
             args.download_notebooks
         )
-
-    if is_debug_run or args.cache_syllabus():
-        spit_json(modules, cached_syllabus_filename)
+        save_syllabus_cache(modules, cached_syllabus_filename)
 
     if args.only_syllabus:
         return error_occurred, False
@@ -215,6 +262,7 @@ def download_on_demand_class(session, args, class_name):
     # FIXME: should we set non-zero exit code if we have failed URLs?
     if course_downloader.failed_urls:
         print_failed_urls(course_downloader.failed_urls)
+    download_progress.emit('summary', failed=len(course_downloader.failed_urls))
 
     return error_occurred, completed
 
@@ -252,6 +300,44 @@ def download_class(session, args, class_name):
     return download_on_demand_class(session, args, class_name)
 
 
+def plan_downloads(session, args):
+    """
+    Return the courses to download as (class_name, download_folder) pairs.
+
+    The courses of a specialization go into a folder named after it.
+    """
+    if not args.specialization:
+        return [(class_name, args.path) for class_name in args.class_names]
+
+    plan = []
+    for name in args.class_names:
+        specialization = SpecializationV1.create(session, name)
+        if specialization is None:
+            logging.info('%s is not a specialization; downloading it as a course', name)
+            plan.append((name, args.path))
+            continue
+        logging.info('Specialization %s has these courses: %s',
+                     name, ' '.join(specialization.children))
+        folder = os.path.join(args.path, name)
+        plan.extend((child, folder) for child in specialization.children)
+    return plan
+
+
+def stops_whole_run(error):
+    """
+    Whether a course's error would hit every remaining course too, so that a
+    specialization download should stop rather than skip to the next course.
+    """
+    if isinstance(error, (requests.exceptions.ConnectionError,
+                          requests.exceptions.Timeout, AuthenticationFailed)):
+        return True
+    response = getattr(error, 'response', None)
+    if response is not None and response.status_code == 401:
+        return True
+    # Coursera refuses the user's own memberships list only when the login is bad.
+    return isinstance(error, requests.exceptions.HTTPError) and 'memberships.v1' in str(error)
+
+
 def main_f(cmd):
     """
     Main entry point for execution as a program (instead of as a module).
@@ -274,46 +360,48 @@ def main_f(cmd):
 
     session = create_session(args)
 
-    if args.specialization:
-        args.class_names = expand_specializations(session, args.class_names)
+    plan = plan_downloads(session, args)
+    skipped_classes = []
 
-    for class_index, class_name in enumerate(args.class_names):
+    for class_index, (class_name, folder) in enumerate(plan):
+        class_args = copy.copy(args)
+        class_args.path = folder
         try:
             logging.info('Downloading class: %s (%d / %d)',
-                         class_name, class_index + 1, len(args.class_names))
+                         class_name, class_index + 1, len(plan))
+            download_progress.emit('class', index=class_index + 1,
+                                   total=len(plan), name=class_name)
             error_occurred, completed = download_class(
-                session, args, class_name)
+                session, class_args, class_name)
             if completed:
                 completed_classes.append(class_name)
             if error_occurred:
                 classes_with_errors.append(class_name)
-        except requests.exceptions.HTTPError as e:
-            # logging.error('HTTPError %s', e)
-            # if is_debug_run():
-            #     logging.exception('HTTPError %s', e)
-            
-            raise # raise error
-            
-        except requests.exceptions.SSLError as e:
-            # logging.error('SSLError %s', e)
-            # print_ssl_error_message(e)
-            if is_debug_run():
+        except (Exception, ClassNotFound, AuthenticationFailed) as e:
+            # A single course, or a problem every course would have: stop.
+            if len(plan) == 1 or stops_whole_run(e):
+                if isinstance(e, ClassNotFound):
+                    logging.error('Could not find class: %s', e)
+                elif isinstance(e, AuthenticationFailed):
+                    logging.error('Could not authenticate: %s', e)
                 raise
-            
-            raise
+            # Otherwise skip this course of the specialization, for example
+            # one the user is not enrolled in, and go on with the next.
+            logging.error('Skipping course %s: %s', class_name, e)
+            skipped_classes.append(class_name)
+            download_progress.emit('course_skipped', name=class_name, reason=str(e))
 
-        except ClassNotFound as e:
-            logging.error('Could not find class: %s', e)
-            raise
-        except AuthenticationFailed as e:
-            logging.error('Could not authenticate: %s', e)
-            raise
-
-        if class_index + 1 != len(args.class_names):
+        if class_index + 1 != len(plan):
             logging.info('Sleeping for %d seconds before downloading next course. '
                          'You can change this with --download-delay option.',
                          args.download_delay)
-            time.sleep(args.download_delay)
+            download_progress.emit('waiting', seconds=args.download_delay)
+            download_progress.wait(args.download_delay)
+
+    if skipped_classes:
+        logging.info('-' * 80)
+        logging.info('These courses were skipped because of errors: %s',
+                     ' '.join(skipped_classes))
 
     if completed_classes:
         logging.info('-' * 80)

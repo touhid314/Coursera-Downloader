@@ -1,0 +1,5 @@
+-r requirements.txt
+
+# For running the tests: python -m pytest
+pytest>=8,<9
+pyinstaller==6.15.0

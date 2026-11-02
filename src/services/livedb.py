@@ -6,8 +6,8 @@ from datetime import datetime, timezone
 import platform
 from packaging import version
 
-from localdb import SimpleDB
-from maingui import __version__
+from .localdb import SimpleDB
+from .. import __version__
 
 API_KEY, PROJECT_ID = SimpleDB().get_remote_config()
 

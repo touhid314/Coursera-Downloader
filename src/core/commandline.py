@@ -11,7 +11,7 @@ import configargparse as argparse
 __courseradlversion__ = '0.12.0b0'
 # from maingui import __version__
 
-from credentials import get_credentials, CredentialsError
+from .credentials import get_credentials, CredentialsError
 
 LOCAL_CONF_FILE_NAME = 'coursera-dl.conf'
 

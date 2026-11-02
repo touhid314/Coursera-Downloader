@@ -9,14 +9,26 @@ namely, aria2c, axel, curl, and wget.
 
 from __future__ import print_function
 
+import glob
+import hashlib
 import logging
 import math
 import os
 import subprocess
 import sys
 import time
+from urllib.parse import urlsplit
 
 import requests
+
+from . import download_progress
+
+# Seconds to wait for a connection / for more data before giving up on a file.
+DOWNLOAD_TIMEOUT = (15, 60)
+
+# An unfinished download lives here until complete, so a file under its real
+# name is always a finished one, and a later run can continue from this file.
+PARTIAL_SUFFIX = '.part'
 
 #
 # Below are file downloaders, they are wrappers for external downloaders.
@@ -50,16 +62,17 @@ class Downloader(object):
 
         try:
             self._start_download(url, filename, resume)
-        except KeyboardInterrupt as e:
-            # keep the file if resume is True
+        except BaseException:
+            # A partial file would later be mistaken for a finished one, so
+            # keep it only if resume is True.
             if not resume:
-                logging.info('Keyboard Interrupt -- Removing partial file: %s',
+                logging.info('Download interrupted -- Removing partial file: %s',
                              filename)
                 try:
                     os.remove(filename)
                 except OSError:
                     pass
-            raise e
+            raise
 
 
 class ExternalDownloader(Downloader):
@@ -247,15 +260,21 @@ class DownloadProgress(object):
     Inspired by https://github.com/rg3/youtube-dl
     """
 
-    def __init__(self, total):
+    # Minimum seconds between reports, so that a fast connection does not
+    # flood the console and the GUI.
+    REPORT_INTERVAL = 0.1
+
+    def __init__(self, total, offset=0):
         if total in [0, '0', None]:
             self._total = None
         else:
             self._total = int(total)
 
+        self._offset = offset  # bytes already on disk when resuming
         self._current = 0
         self._start = 0
         self._now = 0
+        self._last_report = 0
 
         self._finished = False
 
@@ -296,6 +315,22 @@ class DownloadProgress(object):
 
     def report_progress(self):
         """Report download progress."""
+        if (not self._finished
+                and self._now - self._last_report < self.REPORT_INTERVAL):
+            return
+        self._last_report = self._now
+
+        download_progress.emit(
+            'bytes',
+            received=self._current,
+            current=self._offset + self._current,
+            total=None if self._total is None else self._offset + self._total,
+        )
+
+        # There is no console under pythonw.exe or in a windowed build.
+        if sys.stdout is None:
+            return
+
         percent = self.calc_percent()
         total = format_bytes(self._total)
 
@@ -311,6 +346,31 @@ class DownloadProgress(object):
         sys.stdout.flush()
 
 
+def partial_filename_for(filename, url):
+    """
+    Name of the unfinished download of url into filename.
+
+    It carries a tag of the source, so that bytes of a different source, such
+    as another video resolution, are never continued into this file. The query
+    string is left out: it holds a signature that changes on every run.
+    """
+    source_tag = hashlib.sha1(urlsplit(url).path.encode('utf-8')).hexdigest()[:8]
+    return '{0}.{1}{2}'.format(filename, source_tag, PARTIAL_SUFFIX)
+
+
+def remove_other_partial_files(filename, keep):
+    """Delete unfinished downloads of filename that came from another source."""
+    stale = glob.glob(glob.escape(filename) + '.*' + PARTIAL_SUFFIX)
+    stale.append(filename + PARTIAL_SUFFIX)  # untagged, from earlier versions
+    for path in stale:
+        if path != keep and os.path.exists(path):
+            logging.info('Removing unfinished download from another source: %s', path)
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+
 class NativeDownloader(Downloader):
     """
     'Native' python downloader -- slower than the external downloaders.
@@ -322,13 +382,15 @@ class NativeDownloader(Downloader):
         self.session = session
 
     def _start_download(self, url, filename, resume=False):
-        # resume has no meaning if the file doesn't exists!
-        resume = resume and os.path.exists(filename)
+        partial_filename = partial_filename_for(filename, url)
+        remove_other_partial_files(filename, partial_filename)
+        resume = (os.path.exists(partial_filename)
+                  and os.path.getsize(partial_filename) > 0)
 
         headers = {}
         filesize = None
         if resume:
-            filesize = os.path.getsize(filename)
+            filesize = os.path.getsize(partial_filename)
             headers['Range'] = 'bytes={}-'.format(filesize)
             logging.info('Resume downloading %s -> %s', url, filename)
         else:
@@ -338,7 +400,8 @@ class NativeDownloader(Downloader):
         attempts_count = 0
         error_msg = ''
         while attempts_count < max_attempts:
-            r = self.session.get(url, stream=True, headers=headers)
+            r = self.session.get(url, stream=True, headers=headers,
+                                 timeout=DOWNLOAD_TIMEOUT)
 
             if r.status_code != 200:
                 # because in resume state we are downloading only a
@@ -352,6 +415,7 @@ class NativeDownloader(Downloader):
                 elif resume and r.status_code == 416:
                     logging.info('%s already downloaded', filename)
                     r.close()
+                    os.replace(partial_filename, filename)
                     return True
                 else:
                     print('%s %s %s' % (r.status_code, url, filesize))
@@ -366,7 +430,7 @@ class NativeDownloader(Downloader):
                     wait_interval = 2 ** (attempts_count + 1)
                     msg = 'Error downloading, will retry in {0} seconds ...'
                     print(msg.format(wait_interval))
-                    time.sleep(wait_interval)
+                    download_progress.wait(wait_interval)
                     attempts_count += 1
                     continue
 
@@ -377,19 +441,29 @@ class NativeDownloader(Downloader):
                 resume = False
 
             content_length = r.headers.get('content-length')
-            chunk_sz = 1048576
-            progress = DownloadProgress(content_length)
+            # A small chunk keeps both Stop and the progress bar responsive.
+            chunk_sz = 64 * 1024
+            progress = DownloadProgress(content_length,
+                                        offset=filesize if resume else 0)
             progress.start()
-            f = open(filename, 'ab') if resume else open(filename, 'wb')
-            while True:
-                data = r.raw.read(chunk_sz, decode_content=True)
-                if not data:
-                    progress.stop()
-                    break
-                progress.report(r.raw.tell())
-                f.write(data)
-            f.close()
-            r.close()
+            try:
+                # The file must be closed before a stopped download can
+                # remove it: Windows refuses to delete an open file.
+                with open(partial_filename, 'ab' if resume else 'wb') as f:
+                    while True:
+                        download_progress.check_cancelled()
+                        data = r.raw.read(chunk_sz, decode_content=True)
+                        if not data:
+                            progress.stop()
+                            break
+                        f.write(data)
+                        progress.report(r.raw.tell())
+                if content_length and r.raw.tell() < int(content_length):
+                    raise requests.exceptions.ConnectionError(
+                        'Connection closed early: ' + filename)
+            finally:
+                r.close()
+            os.replace(partial_filename, filename)
             return True
 
         if attempts_count == max_attempts:

@@ -3,11 +3,12 @@ requests==2.32.3
 six==1.17.0
 urllib3==2.2.3
 pyasn1>=0.1.7
-keyring>=4.0
 configargparse>=0.12.0
 attrs==18.1.0
 varname==0.15.0
 rookiepy==0.5.6
 pillow==11.0.0
 backoff==2.2.1
-PyQt5==5.15.11
+PySide6==6.10.1
+pywebview==6.2.1
+keyring==25.6.0

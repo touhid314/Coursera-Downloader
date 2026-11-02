@@ -19,8 +19,8 @@ except ImportError:
 
 from io import StringIO
 from http import cookiejar as cookielib
-from define import CLASS_URL, AUTH_REDIRECT_URL, PATH_COOKIES, AUTH_URL_V3
-from utils import mkdir_p, random_string
+from .define import CLASS_URL, AUTH_REDIRECT_URL, PATH_COOKIES, AUTH_URL_V3
+from .utils import mkdir_p, random_string
 
 # Monkey patch cookielib.Cookie.__init__.
 # Reason: The expires value may be a decimal string,

@@ -1,6 +1,6 @@
 import os
 
-from define import FORMAT_MAX_LENGTH, TITLE_MAX_LENGTH
+from .define import FORMAT_MAX_LENGTH, TITLE_MAX_LENGTH
 
 
 def format_section(num, section, class_name, verbose_dirs):

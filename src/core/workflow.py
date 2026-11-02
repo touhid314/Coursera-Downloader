@@ -8,11 +8,13 @@ import subprocess
 
 import requests
 
-from formatting import format_section, get_lecture_filename
-from playlist import create_m3u_playlist
-from utils import is_course_complete, mkdir_p, normalize_path
-from filtering import find_resources_to_get, skip_format_url
-from define import IN_MEMORY_MARKER
+from . import download_progress
+from .formatting import format_section, get_lecture_filename
+from .playlist import create_m3u_playlist
+from .utils import is_course_complete, mkdir_p, normalize_path
+from .filtering import find_resources_to_get, skip_format_url
+from .parallel import ConsecutiveDownloader
+from .define import IN_MEMORY_MARKER
 
 
 def _iter_modules(modules, class_name, path, ignored_formats, args):
@@ -113,6 +115,10 @@ def _walk_modules(modules, class_name, path, ignored_formats, args):
                     yield module, section, lecture, resource
 
 
+# Seconds to wait before trying failed files once more.
+RETRY_DELAY = 5
+
+
 class CourseDownloader(object):
     __metaclass__ = abc.ABCMeta
 
@@ -143,9 +149,14 @@ class CourseraDownloader(CourseDownloader):
 
         self.skipped_urls = None if disable_url_skipping else []
         self.failed_urls = []
+        self._filenames = {}  # url -> file it is downloaded to
 
     def download_modules(self, modules):
         completed = True
+        modules = list(modules)
+        download_progress.emit('course', total=sum(
+            1 for _ in _walk_modules(modules, self._class_name, self._path,
+                                     self._ignored_formats, self._args)))
         modules = _iter_modules(
             modules, self._class_name, self._path,
             self._ignored_formats, self._args)
@@ -160,9 +171,13 @@ class CourseraDownloader(CourseDownloader):
                     for resource in lecture.resources:
                         lecture_filename = normalize_path(
                             lecture.filename(resource.fmt, resource.title))
+                        download_progress.check_cancelled()
+                        download_progress.emit(
+                            'file', name=os.path.basename(lecture_filename))
                         last_update = self._handle_resource(
                             resource.url, resource.fmt, lecture_filename,
                             self._download_completion_handler, last_update)
+                        download_progress.emit('file_done')
 
                 # After fetching resources, create a playlist in M3U format with the
                 # videos downloaded.
@@ -181,7 +196,27 @@ class CourseraDownloader(CourseDownloader):
 
         # Wait for all downloads to complete
         self._downloader.join()
+        self._retry_failed()
         return completed
+
+    def _retry_failed(self):
+        """Try each failed file once more, as many failures are temporary."""
+        # A parallel downloader cannot be reused after join().
+        if not self.failed_urls or not isinstance(
+                self._downloader, ConsecutiveDownloader):
+            return
+
+        retry_urls, self.failed_urls = self.failed_urls, []
+        logging.info('Retrying %d failed files', len(retry_urls))
+        download_progress.emit('retry', count=len(retry_urls))
+        download_progress.wait(RETRY_DELAY)
+        for url in retry_urls:
+            filename = self._filenames[url]
+            download_progress.check_cancelled()
+            download_progress.emit('file', name=os.path.basename(filename))
+            self._downloader.download(self._download_completion_handler, url,
+                                      filename, resume=self._args.resume)
+            download_progress.emit('file_done')
 
     def _download_completion_handler(self, url, result):
         if isinstance(result, requests.exceptions.RequestException):
@@ -190,6 +225,8 @@ class CourseraDownloader(CourseDownloader):
             self.failed_urls.append(url)
         elif isinstance(result, Exception):
             logging.error('Unknown exception occurred: %s', result)
+            self.failed_urls.append(url)
+        elif result is False:
             self.failed_urls.append(url)
 
     def _handle_resource(self, url, fmt, lecture_filename, callback, last_update):
@@ -220,8 +257,10 @@ class CourseraDownloader(CourseDownloader):
         resume = self._args.resume
         skip_download = self._args.skip_download
 
-        # Decide whether we need to download it
-        if overwrite or not os.path.exists(lecture_filename) or resume:
+        # Decide whether we need to download it. An empty file is the remains
+        # of a failed attempt, not a finished download.
+        if (overwrite or not os.path.exists(lecture_filename)
+                or os.path.getsize(lecture_filename) == 0):
             if not skip_download:
                 if url.startswith(IN_MEMORY_MARKER):
                     page_content = url[len(IN_MEMORY_MARKER):]
@@ -234,6 +273,7 @@ class CourseraDownloader(CourseDownloader):
                         self.skipped_urls.append(url)
                     else:
                         logging.info('Downloading: %s', lecture_filename)
+                        self._filenames[url] = lecture_filename
                         self._downloader.download(
                             callback, url, lecture_filename, resume=resume)
             else:
