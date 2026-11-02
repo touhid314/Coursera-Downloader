@@ -14,9 +14,11 @@ That's it.
 
 ## Screenshots
 
-<img src="assets/screenshots/app-v4.png" alt="Coursera Full Course Downloader version 4 interface" width="850">
+<p align="center">
+  <img src="assets/screenshots/app-v4.png" alt="Coursera Full Course Downloader version 4 interface" width="600">
+</p>
 
-### Downloading a course
+### Downloaded course
 
 ![Coursera course download in progress](https://github.com/touhid314/Coursera-Downloader/assets/69526008/6b210f4e-837e-489d-83b9-6c6940cae660)
 
