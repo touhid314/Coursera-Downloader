@@ -2,13 +2,19 @@
 
 A Windows GUI app for downloading complete Coursera courses and specializations in one go.
 
+1. Login to Coursera.
+2. Select one of your enrolled course, or paste the homepage URL of a course/specialization.
+3. Hit download to download all resources of the course!
+
+That's it.
+
 - **Website:** https://coursera-downloader.rf.gd/
 - **Releases:** https://github.com/touhid314/Coursera-Downloader/releases
 - **Source:** https://github.com/touhid314/Coursera-Downloader
 
 ## Screenshots
 
-![Coursera Full Course Downloader version 4 interface](assets/screenshots/app-v4.png)
+<img src="assets/screenshots/app-v4.png" alt="Coursera Full Course Downloader version 4 interface" width="850">
 
 ### Downloading a course
 
