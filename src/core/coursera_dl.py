@@ -50,17 +50,14 @@ import time
 import shutil
 import copy
 
-from distutils.version import LooseVersion as V
-
 
 # Test versions of some critical modules.
 # We may, perhaps, want to move these elsewhere.
-import bs4
 import requests
 
 from .cookies import (
     AuthenticationFailed, ClassNotFound,
-    get_cookies_for_class, make_cookie_values, TLSAdapter, login)
+    get_cookies_for_class, make_cookie_values, TLSAdapter, login, set_cauth)
 from .define import (CLASS_URL, ABOUT_URL, PATH_CACHE)
 from . import download_progress
 from .downloaders import DOWNLOAD_TIMEOUT, get_downloader
@@ -77,11 +74,6 @@ from .commandline import parse_args
 from .extractors import CourseraExtractor
 
 
-# URL containing information about outdated modules
-_SEE_URL = " See https://github.com/coursera-dl/coursera/issues/139"
-
-assert V(requests.__version__) >= V('2.4'), "Upgrade requests!" + _SEE_URL
-assert V(bs4.__version__) >= V('4.1'), "Upgrade bs4!" + _SEE_URL
 
 
 # Video links in the syllabus are signed with an expiry time. A saved syllabus
@@ -139,7 +131,7 @@ def get_session():
 def create_session(args):
     session = get_session()
     if args.cookies_cauth:
-        session.cookies.set('CAUTH', args.cookies_cauth)
+        set_cauth(session, args.cookies_cauth)
     elif args.browser:
         def autocookie(browser):
             import browser_cookie3
@@ -173,7 +165,7 @@ def create_session(args):
         cauth_cookie = autocookie(args.browser)
         logging.debug(
             f'Got CAUTH cookie from {args.browser}: "{cauth_cookie}"')
-        session.cookies.set('CAUTH', cauth_cookie)
+        set_cauth(session, cauth_cookie)
     else:
         login(session, args.username, args.password)
     return session

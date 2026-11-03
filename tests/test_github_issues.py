@@ -179,3 +179,27 @@ class VideoResolutionTests(TestCase):
         videos = self.videos("240p", "360p", "540p", "720p")
         self.assertNotIn("1080p", videos)
         self.assertEqual(videos.get_best().resolution, "720p")
+
+
+class LoginCookieScopeTests(TestCase):
+    """PR #20: the CAUTH login cookie was sent to every website, not only Coursera."""
+
+    def cookie_sent_to(self, url):
+        from types import SimpleNamespace
+        from src.core import coursera_dl
+        session = coursera_dl.create_session(SimpleNamespace(
+            cookies_cauth="SECRET", browser=None, username=None, password=None))
+        return session.prepare_request(requests.Request("GET", url)).headers.get("Cookie")
+
+    def test_sent_to_coursera(self):
+        for url in ("https://api.coursera.org/api/x", "https://www.coursera.org/learn/x"):
+            with self.subTest(url=url):
+                self.assertEqual(self.cookie_sent_to(url), "CAUTH=SECRET")
+
+    def test_not_sent_anywhere_else(self):
+        for url in ("https://scrumguides.org/guide.pdf",
+                    "https://d3c33hcgiwev3.cloudfront.net/video.mp4",
+                    "https://evil-coursera.org/",
+                    "http://www.coursera.org/learn/x"):   # never unencrypted
+            with self.subTest(url=url):
+                self.assertIsNone(self.cookie_sent_to(url))

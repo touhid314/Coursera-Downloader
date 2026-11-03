@@ -12,3 +12,4 @@ backoff==2.2.1
 PySide6==6.10.1
 pywebview==6.2.1
 keyring==25.6.0
+packaging>=23.0

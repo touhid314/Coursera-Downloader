@@ -1,5 +1,22 @@
 # Changelog
 
+## v4.1.1
+
+### Security
+
+- The Coursera login cookie (CAUTH) was sent to every website the app
+  contacted, including third-party sites linked from course materials. It is
+  now sent only to coursera.org, and only over HTTPS. Thanks to
+  Muhammad-Danyal353, whose pull request #20 pointed this out.
+
+### Fixed
+
+- Running from source failed on a clean install because the `packaging`
+  module was not listed in `requirements.txt`.
+- Removed the use of `distutils`, which newer Python versions no longer have.
+- Secure connections use TLS 1.2 or newer, including TLS 1.3, instead of a
+  deprecated TLS 1.2-only setting.
+
 ## v4.1.0
 
 ### Added

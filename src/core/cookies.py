@@ -69,6 +69,18 @@ class AuthenticationFailed(BaseException):
     """
 
 
+# The CAUTH login cookie is only ever sent to Coursera. Without a domain,
+# requests would attach it to every host the app contacts, including the
+# third-party websites that course materials link to.
+CAUTH_DOMAIN = '.coursera.org'
+
+
+def set_cauth(session, cauth):
+    """Put the CAUTH login cookie in the session, for Coursera only."""
+    session.cookies.set('CAUTH', cauth, domain=CAUTH_DOMAIN, path='/',
+                        secure=True)
+
+
 def prepare_auth_headers(session, include_cauth=False):
     """
     This function prepares headers with CSRF/CAUTH tokens that can
@@ -150,7 +162,7 @@ def login(session, username, password, class_name=None):
         # Some how the order of cookies parameters are important
         # for coursera!!!
         v = session.cookies.pop('CAUTH')
-        session.cookies.set('CAUTH', v)
+        set_cauth(session, v)
     except requests.exceptions.HTTPError as e:
         raise AuthenticationFailed('Cannot login on coursera.org: %s' % e)
 
@@ -374,12 +386,16 @@ def get_cookies_for_class(session, class_name,
 
 class TLSAdapter(HTTPAdapter):
     """
-    A customized HTTP Adapter which uses TLS v1.2 for encrypted
-    connections.
+    A customized HTTP Adapter that requires TLS 1.2 or newer.
+
+    ssl.PROTOCOL_TLSv1_2 is deprecated and also rules out TLS 1.3, so a
+    default context with a minimum version is used instead.
     """
 
     def init_poolmanager(self, connections, maxsize, block=False):
+        context = ssl.create_default_context()
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         self.poolmanager = PoolManager(num_pools=connections,
                                        maxsize=maxsize,
                                        block=block,
-                                       ssl_version=ssl.PROTOCOL_TLSv1_2)
+                                       ssl_context=context)
