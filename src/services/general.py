@@ -21,11 +21,11 @@ LANG_NAME_TO_CODE_MAPPING = {'Arabic': 'ar', 'Afrikaans': 'af',
                              'Italian': 'it',
                              'Japanese': 'ja',
                              'Korean': 'ko',
-                             'Malay': 'ml', 'Malayalam': 'ml',
-                             'Portugese': 'pt',
+                             'Malay': 'ms', 'Malayalam': 'ml',
+                             'Portuguese': 'pt',
                              'Russian': 'ru',
                              'Spanish': 'es',
-                             'Tamil': 'ta', 'Telegu': 'te', 'Thai': 'th', 'Turkish': 'tr',
+                             'Tamil': 'ta', 'Telugu': 'te', 'Thai': 'th', 'Turkish': 'tr',
                              'Urdu': 'ur',
                              'Vietnamese': 'vi',
                              '-ALL AVAILABLE': 'all', '-NONE': ''}
@@ -33,26 +33,68 @@ LANG_NAME_TO_CODE_MAPPING = {'Arabic': 'ar', 'Afrikaans': 'af',
 ALLOWED_BROWSERS = ["firefox", "brave"]
 # Logging in through the app's own window (WebView2) instead of a browser.
 EMBEDDED_LOGIN = "embedded"
-LOGIN_METHODS = [EMBEDDED_LOGIN] + ALLOWED_BROWSERS
+# Pasting the CAUTH cookie by hand, for when no other method works.
+MANUAL_LOGIN = "manual"
+LOGIN_METHODS = [EMBEDDED_LOGIN] + ALLOWED_BROWSERS + [MANUAL_LOGIN]
 AUTH_SERVICE = "CourseraDownloader"
 EMBEDDED_AUTH_ACCOUNT = "embedded-cauth"
+# Logins the app keeps itself, by login method. Browser logins stay in the browser.
+SAVED_AUTH_ACCOUNTS = {
+    EMBEDDED_LOGIN: EMBEDDED_AUTH_ACCOUNT,
+    MANUAL_LOGIN: "manual-cauth",
+}
 
 
-def load_embedded_auth():
-    """Load the embedded-browser session from the OS credential vault."""
+def load_saved_auth(method):
+    """Load a login saved in the OS credential vault for this login method."""
     try:
-        return keyring.get_password(AUTH_SERVICE, EMBEDDED_AUTH_ACCOUNT) or ""
+        return keyring.get_password(AUTH_SERVICE, SAVED_AUTH_ACCOUNTS[method]) or ""
     except Exception:
         return ""
 
 
-def save_embedded_auth(cauth_cookie):
-    """Store the embedded-browser session in the OS credential vault."""
+def save_auth(method, cauth_cookie):
+    """Store a login in the OS credential vault for this login method."""
     try:
-        keyring.set_password(AUTH_SERVICE, EMBEDDED_AUTH_ACCOUNT, cauth_cookie)
+        keyring.set_password(AUTH_SERVICE, SAVED_AUTH_ACCOUNTS[method], cauth_cookie)
         return True
     except Exception:
         return False
+
+
+def clear_saved_auth(method):
+    """Remove a saved login for this login method from the OS credential vault."""
+    try:
+        keyring.delete_password(AUTH_SERVICE, SAVED_AUTH_ACCOUNTS[method])
+    except Exception:
+        pass
+
+
+def load_embedded_auth():
+    """Load the embedded-browser session from the OS credential vault."""
+    return load_saved_auth(EMBEDDED_LOGIN)
+
+
+def save_embedded_auth(cauth_cookie):
+    """Store the embedded-browser session in the OS credential vault."""
+    return save_auth(EMBEDDED_LOGIN, cauth_cookie)
+
+
+def normalize_pasted_cauth(text):
+    """
+    Return the CAUTH cookie value from what the user pasted.
+
+    Accepts the bare value, "CAUTH=value", or a whole Cookie header that
+    contains CAUTH. Returns '' if nothing usable was pasted.
+    """
+    text = (text or "").strip().strip('"').strip()
+    match = re.search(r'(?:^|[;\s])CAUTH=([^;\s]+)', text)
+    if match:
+        return match.group(1).strip('"')
+    # name=value means some other cookie; a trailing "=" is only padding.
+    if re.search(r"=[^=]", text) or ";" in text or re.search(r"\s", text):
+        return ""
+    return text
 
 
 # Lists only the user's own enrollments, so it is refused exactly when the login
@@ -80,10 +122,7 @@ def check_cauth(cauth_cookie):
 
 def clear_embedded_auth():
     """Remove a saved embedded-browser session from the OS credential vault."""
-    try:
-        keyring.delete_password(AUTH_SERVICE, EMBEDDED_AUTH_ACCOUNT)
-    except Exception:
-        pass
+    clear_saved_auth(EMBEDDED_LOGIN)
 
 
 def get_default_browser():
@@ -226,15 +265,24 @@ def loadcauth_with_error(domain: str, browser: str):
     try:
         browser_reader = getattr(rookiepy, browser)
         cookies = browser_reader([domain])
-    except Exception as e:
-        print(f"Error fetching cookies from {browser}: {e}")
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as e:
+        # rookiepy is written in Rust. When it fails badly, for example while
+        # reading a locked cookie file straight from an NTFS disk, the Rust
+        # panic reaches Python as pyo3_runtime.PanicException, which derives
+        # from BaseException rather than Exception.
+        print(f"Error fetching cookies from {browser}: {type(e).__name__}: {e}")
         error = str(e)
         if "appbound encryption" in error.lower() and "admin" in error.lower():
             return cauth, (
                 f"{browser.title()} protects its cookies with app-bound encryption. "
-                "Restart this app as administrator to use Edge, or select Firefox."
+                "Use the embedded browser, or select Firefox."
             )
-        return cauth, f"Could not read cookies from {browser.title()}."
+        return cauth, (
+            f"Could not read the Coursera login from {browser.title()}. "
+            f"Close {browser.title()} and try again, or use the embedded browser."
+        )
 
     for cookie in cookies:
             if cookie['name'] == "CAUTH":

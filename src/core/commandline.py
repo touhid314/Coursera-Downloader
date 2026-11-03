@@ -217,7 +217,8 @@ def parse_args(args=None):
         default='540p',
         help='video resolution to download (default: 540p); '
         'only valid for on-demand courses; '
-        'only values allowed: 360p, 540p, 720p')
+        'only values allowed: 360p, 540p, 720p, 1080p. If a video is not '
+        'available in it, the highest available resolution is downloaded')
 
     group_material.add_argument(
         '--disable-url-skipping',

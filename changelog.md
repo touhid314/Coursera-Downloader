@@ -1,5 +1,30 @@
 # Changelog
 
+## v4.1.0
+
+### Added
+
+- **1080p** video option (#18). Few Coursera courses have 1080p videos; other
+  videos are downloaded in the highest quality they have, usually 720p.
+- **Paste login cookie** login option: paste the CAUTH cookie from any browser
+  when the embedded and browser logins don't work (#14). It is checked with
+  Coursera and stored in the Windows credential vault.
+- The download summary now says how many quizzes and graded assignments were
+  not downloaded. Coursera's current quiz format (#10) can't be downloaded,
+  because its questions only appear after starting an attempt.
+
+### Fixed
+
+- When the chosen resolution wasn't available, the fallback picked 720p even
+  for videos that have 1080p, because resolutions were compared as text.
+- One course item that Coursera answers unexpectedly no longer stops the whole
+  course; it is reported and the rest of the course downloads (#4).
+- Reading the login from Brave or Firefox could crash the app with a Rust
+  `PanicException`; it now shows a login error instead (#13).
+- Malay subtitles used Malayalam's language code, so Malay could not be
+  selected or saved correctly (#16). Corrected the spelling of Portuguese and
+  Telugu.
+
 ## v4.0.0
 
 This is a substantial modernization of the application, its authentication

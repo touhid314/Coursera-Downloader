@@ -9,11 +9,28 @@ import abc
 import json
 import logging
 
+import requests
+
 from .api import (CourseraOnDemand, OnDemandCourseMaterialItemsV1,
                  ModulesV1, LessonsV1, ItemsV2)
 from .define import OPENCOURSE_ONDEMAND_COURSE_MATERIALS_V2
+from . import download_progress
+from .cookies import AuthenticationFailed
 from .network import get_page
 from .utils import is_debug_run, spit_json
+
+# Errors that would hit every remaining item as well, so they stop the course
+# instead of being reported per item.
+ITEM_FATAL_ERRORS = (
+    requests.exceptions.ConnectionError,
+    requests.exceptions.Timeout,
+    AuthenticationFailed,
+)
+
+# Coursera's current quiz and assignment items. Their questions are only
+# available after starting an attempt, which counts against the learner's
+# limited submissions, so they are not downloaded.
+ASSESSMENT_TYPES = ('staffGraded', 'ungradedAssignment')
 
 
 class PlatformExtractor(object):
@@ -112,6 +129,7 @@ class CourseraExtractor(PlatformExtractor):
                       '%s-course-material-items.json' % course_name)
 
         error_occurred = False
+        self._skipped_assessments = 0
 
         all_modules = ModulesV1.from_json(
             dom['linked']['onDemandCourseMaterialModules.v1'])
@@ -141,67 +159,23 @@ class CourseraExtractor(PlatformExtractor):
 
                     logging.info('Processing lecture         %s (%s)',
                                  lecture.slug, typename)
-                    # Empty dictionary means there were no data
-                    # None means an error occurred
-                    links = {}
-
-                    if typename == 'lecture':
-                        # lecture_video_id = lecture['content']['definition']['videoId']
-                        # assets = lecture['content']['definition'].get(
-                        #     'assets', [])
-                        lecture_video_id = lecture.id
-                        # assets = []
-
-                        links = course.extract_links_from_lecture(
-                            class_id,
-                            lecture_video_id, subtitle_language,
-                            video_resolution)
-
-                    elif typename == 'supplement':
-                        links = course.extract_links_from_supplement(
-                            lecture.id)
-
-                    elif typename == 'phasedPeer':
-                        links = course.extract_links_from_peer_assignment(
-                            lecture.id)
-
-                    elif typename in ('gradedProgramming', 'ungradedProgramming'):
-                        links = course.extract_links_from_programming(
-                            lecture.id)
-
-                    elif typename == 'quiz':
-                        if download_quizzes:
-                            links = course.extract_links_from_quiz(
-                                lecture.id)
-                            
-                    elif typename == 'staffGraded':
-                        logging.info(
-                            'Staff graded assignment skipped: "%s" in lecture "%s" (lecture id "%s")',
-                            lecture.slug, lecture.slug, lecture.id)
-
-                    elif typename == 'exam':
-                        if download_quizzes:
-                            links = course.extract_links_from_exam(
-                                lecture.id)
-
-                    elif typename == 'programming':
-                        if download_quizzes:
-                            links = course.extract_links_from_programming_immediate_instructions(
-                                lecture.id)
-
-                    elif typename == 'notebook':
-                        if download_notebooks and not self._notebook_downloaded:
-                            logging.warning(
-                                'According to notebooks platform, content will be downloaded first')
-                            links = course.extract_links_from_notebook(
-                                lecture.id)
-                            self._notebook_downloaded = True
-
-                    else:
-                        logging.info(
-                            'Unsupported typename "%s" in lecture "%s" (lecture id "%s")',
-                            typename, lecture.slug, lecture.id)
-                        continue
+                    try:
+                        links = self._extract_item_links(
+                            course, class_id, lecture, typename,
+                            subtitle_language, video_resolution,
+                            download_quizzes, download_notebooks)
+                    except ITEM_FATAL_ERRORS:
+                        raise
+                    except Exception as exception:
+                        # One item that Coursera answers unexpectedly must not
+                        # stop the rest of the course from downloading.
+                        logging.error(
+                            'Could not process %s "%s" (id "%s"): %s: %s',
+                            typename, lecture.slug, lecture.id,
+                            type(exception).__name__, exception)
+                        if is_debug_run():
+                            logging.exception('Item %s failed', lecture.id)
+                        links = None
 
                     if links is None:
                         error_occurred = True
@@ -241,4 +215,84 @@ class CourseraExtractor(PlatformExtractor):
         if references:
             modules.append(("Resources", references))
 
+        if self._skipped_assessments:
+            logging.info(
+                '%d quizzes and graded assignments were not downloaded: '
+                "Coursera's current quiz format cannot be downloaded.",
+                self._skipped_assessments)
+            download_progress.emit('assessments_skipped',
+                                   count=self._skipped_assessments)
+
         return error_occurred, modules
+
+
+    def _extract_item_links(self, course, class_id, lecture, typename,
+                            subtitle_language, video_resolution,
+                            download_quizzes, download_notebooks):
+        """
+        Return the links of one course item: {} when there is nothing to
+        download, None when an error occurred.
+        """
+        # Empty dictionary means there were no data
+        # None means an error occurred
+        links = {}
+
+        if typename == 'lecture':
+            # lecture_video_id = lecture['content']['definition']['videoId']
+            # assets = lecture['content']['definition'].get(
+            #     'assets', [])
+            lecture_video_id = lecture.id
+            # assets = []
+
+            links = course.extract_links_from_lecture(
+                class_id,
+                lecture_video_id, subtitle_language,
+                video_resolution)
+
+        elif typename == 'supplement':
+            links = course.extract_links_from_supplement(
+                lecture.id)
+
+        elif typename == 'phasedPeer':
+            links = course.extract_links_from_peer_assignment(
+                lecture.id)
+
+        elif typename in ('gradedProgramming', 'ungradedProgramming'):
+            links = course.extract_links_from_programming(
+                lecture.id)
+
+        elif typename == 'quiz':
+            if download_quizzes:
+                links = course.extract_links_from_quiz(
+                    lecture.id)
+                
+        elif typename in ASSESSMENT_TYPES:
+            self._skipped_assessments += 1
+            logging.info('Quiz or assignment skipped: "%s" (%s, id "%s")',
+                         lecture.slug, typename, lecture.id)
+
+        elif typename == 'exam':
+            if download_quizzes:
+                links = course.extract_links_from_exam(
+                    lecture.id)
+
+        elif typename == 'programming':
+            if download_quizzes:
+                links = course.extract_links_from_programming_immediate_instructions(
+                    lecture.id)
+
+        elif typename == 'notebook':
+            if download_notebooks and not self._notebook_downloaded:
+                logging.warning(
+                    'According to notebooks platform, content will be downloaded first')
+                links = course.extract_links_from_notebook(
+                    lecture.id)
+                self._notebook_downloaded = True
+
+        else:
+            logging.info(
+                'Unsupported typename "%s" in lecture "%s" (lecture id "%s")',
+                typename, lecture.slug, lecture.id)
+            return {}
+
+        return links

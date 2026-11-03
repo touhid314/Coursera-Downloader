@@ -507,6 +507,14 @@ class ItemsV2(object):
         return self.children[key]
 
 
+def resolution_height(resolution):
+    """Return 1080 for '1080p'; 0 for anything that is not a resolution."""
+    try:
+        return int(str(resolution).lower().rstrip('p'))
+    except ValueError:
+        return 0
+
+
 @attr.s
 class VideoV1(object):
     resolution = attr.ib()
@@ -523,7 +531,9 @@ class VideosV1(object):
         videos = [VideoV1(resolution, links['mp4VideoUrl'])
                   for resolution, links
                   in data['sources']['byResolution'].items()]
-        videos.sort(key=lambda video: video.resolution, reverse=True)
+        # Highest first. Sort by the number: as text, "1080p" sorts below "240p".
+        videos.sort(key=lambda video: resolution_height(video.resolution),
+                    reverse=True)
 
         videos = OrderedDict(
             (video.resolution, video)

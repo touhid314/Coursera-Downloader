@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QRadioButton,
     QComboBox, QFileDialog, QMessageBox, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QTextBrowser,
     QScrollArea, QFrame, QSizePolicy, QProgressBar, QDialog, QDialogButtonBox, QToolButton,
-    QSystemTrayIcon
+    QSystemTrayIcon, QInputDialog
 )
 from PySide6.QtGui import (
     QAction, QIcon, QCursor, QFontMetrics, QPainter, QPalette, QPixmap, QDesktopServices
@@ -225,6 +225,7 @@ class MainWindow(QMainWindow):
         self.browser_combo.addItem("Embedded browser", general.EMBEDDED_LOGIN)
         for browser_name in general.ALLOWED_BROWSERS:
             self.browser_combo.addItem(browser_name.title(), browser_name)
+        self.browser_combo.addItem("Paste login cookie", general.MANUAL_LOGIN)
         browser_index = self.browser_combo.findData(self.login_browser)
         if browser_index >= 0:
             self.browser_combo.setCurrentIndex(browser_index)
@@ -239,7 +240,7 @@ class MainWindow(QMainWindow):
         self.open_login_btn.clicked.connect(self.open_coursera_login)
         self.check_login_btn = QPushButton("I've logged in")
         self.check_login_btn.clicked.connect(self.check_browser_login)
-        login_layout.addWidget(QLabel("Browser:"), 1, 0)
+        login_layout.addWidget(QLabel("Log in with:"), 1, 0)
         login_layout.addWidget(self.browser_combo, 1, 1)
         login_layout.addWidget(self.open_login_btn, 1, 2)
         login_layout.addWidget(self.check_login_btn, 1, 3)
@@ -287,15 +288,23 @@ class MainWindow(QMainWindow):
         res_group = QGroupBox()
         res_layout = QHBoxLayout()
         res_group.setLayout(res_layout)
+        self.res_1080 = QRadioButton("1080p")
+        self.res_1080.setToolTip(
+            "Few Coursera courses have 1080p videos. Other videos are "
+            "downloaded in the highest quality they have, usually 720p."
+        )
         self.res_720 = QRadioButton("720p")
         self.res_540 = QRadioButton("540p")
         self.res_360 = QRadioButton("360p")
+        res_layout.addWidget(self.res_1080)
         res_layout.addWidget(self.res_720)
         res_layout.addWidget(self.res_540)
         res_layout.addWidget(self.res_360)
         grid.addWidget(res_group, 3, 1)
         # Set checked
-        if self.localdb.read('argdict')['video_resolution'] == '540p':
+        if self.localdb.read('argdict')['video_resolution'] == '1080p':
+            self.res_1080.setChecked(True)
+        elif self.localdb.read('argdict')['video_resolution'] == '540p':
             self.res_540.setChecked(True)
         elif self.localdb.read('argdict')['video_resolution'] == '360p':
             self.res_360.setChecked(True)
@@ -431,6 +440,10 @@ class MainWindow(QMainWindow):
     def uses_embedded_login(self):
         return self.login_browser == general.EMBEDDED_LOGIN
 
+    def uses_browser_login(self):
+        """Whether the login is read from the user's own browser."""
+        return self.login_browser in general.ALLOWED_BROWSERS
+
     def browser_changed(self):
         self.login_poll_timer.stop()
         self.login_browser = self.browser_combo.currentData()
@@ -446,13 +459,17 @@ class MainWindow(QMainWindow):
     def restore_login(self):
         """Pick up an existing login for the selected method, if there is one."""
         # Only a browser login can be re-checked by hand.
-        self.check_login_btn.setVisible(not self.uses_embedded_login())
-        if not self.uses_embedded_login():
+        self.check_login_btn.setVisible(self.uses_browser_login())
+        self.open_login_btn.setText(
+            "Paste cookie…" if self.login_browser == general.MANUAL_LOGIN
+            else "Open Coursera login"
+        )
+        if self.uses_browser_login():
             self.check_browser_login(silent=True)
             return
-        saved_embedded_auth = general.load_embedded_auth()
-        if saved_embedded_auth:
-            self.set_auth_cookie(saved_embedded_auth, general.EMBEDDED_LOGIN)
+        saved_auth = general.load_saved_auth(self.login_browser)
+        if saved_auth:
+            self.set_auth_cookie(saved_auth, self.login_browser)
 
     def set_login_status(self, text, state):
         colors = {
@@ -469,6 +486,9 @@ class MainWindow(QMainWindow):
         if self.uses_embedded_login():
             self.open_embedded_login()
             return
+        if self.login_browser == general.MANUAL_LOGIN:
+            self.paste_login_cookie()
+            return
         if self.cauth_cookie:  # already logged in, or being checked
             return
         opened = general.open_browser(
@@ -484,6 +504,29 @@ class MainWindow(QMainWindow):
             "Waiting for the Coursera login to finish in your browser…", "pending"
         )
         self.login_poll_timer.start()
+
+    def paste_login_cookie(self):
+        """Let the user paste the CAUTH cookie from a browser they are logged in to."""
+        text, accepted = QInputDialog.getText(
+            self,
+            "Paste login cookie",
+            "Log in to coursera.org in any browser. Then press F12, open\n"
+            "Application (Chrome, Edge, Brave) or Storage (Firefox) → Cookies →\n"
+            "https://www.coursera.org, and copy the value of the CAUTH cookie.\n\n"
+            "CAUTH cookie:",
+            QLineEdit.EchoMode.Password,
+        )
+        if not accepted:
+            return
+        cauth_cookie = general.normalize_pasted_cauth(text)
+        if not cauth_cookie:
+            self.set_login_status(
+                "That is not a CAUTH cookie. Copy only the value of the cookie named CAUTH.",
+                "error",
+            )
+            return
+        self.rejected_cauth.discard(cauth_cookie)
+        self.set_auth_cookie(cauth_cookie, general.MANUAL_LOGIN)
 
     def check_browser_login(self, silent=False):
         cauth_cookie, access_error = general.loadcauth_with_error(
@@ -529,8 +572,8 @@ class MainWindow(QMainWindow):
         if valid is False:
             self.login_expired()
             return
-        if browser == general.EMBEDDED_LOGIN:
-            general.save_embedded_auth(cauth_cookie)
+        if browser in general.SAVED_AUTH_ACCOUNTS:
+            general.save_auth(browser, cauth_cookie)
         # valid is None when Coursera could not be reached. The login is kept;
         # a download will report the problem if there is one.
         self.set_login_status("Logged in", "success")
@@ -579,10 +622,18 @@ class MainWindow(QMainWindow):
 
     def login_expired(self):
         self.rejected_cauth.add(self.cauth_cookie)
-        if self.auth_source == general.EMBEDDED_LOGIN:
-            general.clear_embedded_auth()
+        source = self.auth_source
+        if source in general.SAVED_AUTH_ACCOUNTS:
+            general.clear_saved_auth(source)
         self.cauth_cookie = ""
         self.auth_source = None
+        if source == general.MANUAL_LOGIN:
+            self.set_login_status(
+                "Coursera did not accept this cookie. It may have expired. "
+                "Click Paste cookie… and paste a new one.",
+                "error",
+            )
+            return
         self.set_login_status(
             "Your Coursera login has expired. Click Open Coursera login to log in again.",
             "error",
@@ -815,7 +866,9 @@ class MainWindow(QMainWindow):
         # separately, so its derived values never end up in the settings.
         course, class_name, is_specialization = self.selected_course()
         folder = self.path_label.text()
-        if self.res_720.isChecked():
+        if self.res_1080.isChecked():
+            resolution = '1080p'
+        elif self.res_720.isChecked():
             resolution = '720p'
         elif self.res_540.isChecked():
             resolution = '540p'
@@ -902,6 +955,7 @@ class MainWindow(QMainWindow):
         self.files_done = 0
         self.all_files_total = 0      # across all courses of this run
         self.files_failed = 0
+        self.assessments_skipped = 0
         self.course_index = 0
         self.courses_total = 1
         self.skipped_courses = []
@@ -1020,6 +1074,8 @@ class MainWindow(QMainWindow):
             self.files_failed += event["failed"]
         elif event_type == "course_skipped":
             self.skipped_courses.append(event["name"])
+        elif event_type == "assessments_skipped":
+            self.assessments_skipped += event["count"]
 
     def course_prefix(self):
         if self.courses_total < 2:
@@ -1044,6 +1100,12 @@ class MainWindow(QMainWindow):
         self.progress_detail.setText(f"{self.files_summary()}   ·   {size}")
         self.set_overall_progress(self.overall_fraction(file_fraction))
 
+    def assessments_note(self):
+        if not self.assessments_skipped:
+            return ""
+        return (f" {self.assessments_skipped} quizzes and graded assignments were not "
+                "downloaded, because Coursera's current quiz format can't be downloaded.")
+
     @Slot()
     def download_completed(self):
         self.set_overall_progress(1)
@@ -1055,6 +1117,7 @@ class MainWindow(QMainWindow):
                       f"you are enrolled in them: {', '.join(self.skipped_courses)}")
             if self.files_failed:
                 detail += f". {self.files_failed} files failed; use Resume to retry them."
+            detail += self.assessments_note()
             self.finish_progress("Download finished with errors", detail, "#f59e0b",
                                  taskbar.ERROR)
             self.notify_finished("Download finished with errors", detail,
@@ -1062,13 +1125,13 @@ class MainWindow(QMainWindow):
             return
         if self.files_failed:
             detail = (f"{self.files_failed} of {self.all_files_total} files failed. "
-                      "Use Resume to retry them.")
+                      "Use Resume to retry them." + self.assessments_note())
             self.finish_progress("Download finished with errors", detail, "#f59e0b",
                                  taskbar.ERROR)
             self.notify_finished("Download finished with errors", detail,
                                  QMessageBox.Icon.Warning)
             return
-        detail = f"{courses}{self.all_files_total} files"
+        detail = f"{courses}{self.all_files_total} files." + self.assessments_note()
         self.finish_progress("Download complete", detail, "#22c55e")
         self.notify_finished("Download complete", detail, QMessageBox.Icon.Information)
 
