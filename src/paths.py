@@ -5,6 +5,7 @@ import shutil
 import sys
 
 IS_MACOS = sys.platform == "darwin"
+IS_WINDOWS = sys.platform == "win32"
 APP_DATA_FOLDER = "CourseraDownloader"
 
 if getattr(sys, "frozen", False):
@@ -16,9 +17,9 @@ else:
 
 # Script that starts the app; also run as a helper for the embedded login window.
 MAIN_SCRIPT = os.path.join(APP_ROOT, "main.py")
-# macOS does not read Windows .ico files reliably; it gets the PNG.
+# Only Windows gets the .ico file; macOS and Linux use the PNG.
 ICON_FILE = os.path.join(
-    APP_ROOT, "assets", "icon", "icon.png" if IS_MACOS else "icon.ico"
+    APP_ROOT, "assets", "icon", "icon.ico" if IS_WINDOWS else "icon.png"
 )
 
 
@@ -40,10 +41,11 @@ def app_file(name):
     Path of a file the app reads and writes, such as the settings file.
 
     On Windows it is kept next to the app. A macOS app bundle must not be
-    changed (that breaks its signature, and it may be read-only), so the packaged
-    Mac app keeps it in Application Support, starting from the bundled copy.
+    changed (that breaks its signature, and it may be read-only), and a Linux
+    install may not be writable, so the packaged Mac and Linux apps keep it in
+    the user's data folder, starting from the bundled copy.
     """
-    if not (IS_MACOS and getattr(sys, "frozen", False)):
+    if IS_WINDOWS or not getattr(sys, "frozen", False):
         return os.path.join(APP_ROOT, name)
 
     folder = user_data_dir()

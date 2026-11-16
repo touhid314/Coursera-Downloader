@@ -43,9 +43,21 @@ def _write_cookie_names(cookies, path):
         names_file.write(" ".join(sorted(names)))
 
 
+def _webview_backend():
+    """WebView2 on Windows, Qt WebEngine on Linux, WebKit (the default) on macOS."""
+    if sys.platform == "win32":
+        return "edgechromium"
+    if sys.platform.startswith("linux"):
+        return "qt"
+    return None
+
+
 def run_webview_login(result_path=None):
-    """Run the login window (WebView2 on Windows, WebKit on macOS) in its own process."""
+    """Run the Coursera login window in its own process."""
     try:
+        if sys.platform.startswith("linux"):
+            # pywebview's Qt backend, on the PySide6 the app already ships.
+            os.environ.setdefault("QT_API", "pyside6")
         import webview
 
         storage_path = os.path.join(paths.user_data_dir(), "WebView2")
@@ -88,8 +100,7 @@ def run_webview_login(result_path=None):
         webview.start(
             watch_for_login,
             window,
-            # macOS uses its built-in WebKit (pywebview's default there).
-            gui="edgechromium" if sys.platform == "win32" else None,
+            gui=_webview_backend(),
             private_mode=False,
             storage_path=storage_path,
         )

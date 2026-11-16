@@ -13,3 +13,5 @@ PySide6==6.10.1
 pywebview==6.2.1
 keyring==25.6.0
 packaging>=23.0
+# pywebview's Qt backend, used for the login window on Linux
+qtpy>=2.4; sys_platform == "linux"

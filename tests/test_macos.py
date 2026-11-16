@@ -23,7 +23,7 @@ class MacSettingsFileTests(TestCase):
     def mac_app(self):
         """Simulate the packaged Mac app."""
         return mock.patch.multiple(
-            paths, IS_MACOS=True, APP_ROOT=self.bundle.name
+            paths, IS_MACOS=True, IS_WINDOWS=False, APP_ROOT=self.bundle.name
         ), mock.patch.object(sys, "frozen", True, create=True), mock.patch(
             "os.path.expanduser",
             side_effect=lambda p: p.replace("~", self.home.name, 1),
@@ -111,7 +111,8 @@ class MacUpdateTests(TestCase):
                 self.assertIn(general.MACOS_INSTALL_COMMAND, f.read(), name)
 
     def test_update_script_runs_the_install_command(self):
-        path = general.write_macos_update_script()
+        with mock.patch.object(sys, "platform", "darwin"):
+            path = general.write_macos_update_script()
         self.addCleanup(lambda: os.path.exists(path) and os.remove(path))
         self.assertTrue(path.endswith(".command"))
         with open(path, encoding="utf-8") as f:

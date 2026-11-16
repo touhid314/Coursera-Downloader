@@ -149,50 +149,122 @@ def get_default_browser():
     return next((name for marker, name in browser_ids.items() if marker in prog_id), None)
 
 
-# macOS application names of the supported browsers.
-# Installs or updates the Mac app (see install-macos.sh). The update URL kept
-# in the remote database is the Windows installer, so Macs use this instead.
-MACOS_INSTALL_COMMAND = (
-    "curl -fsSL https://raw.githubusercontent.com/touhid314/Coursera-Downloader"
-    "/main/install-macos.sh | bash"
-)
+RAW_FILES = "https://raw.githubusercontent.com/touhid314/Coursera-Downloader/main"
+# Install or update the Mac and Linux apps (see install-macos.sh and
+# install-linux.sh). The update URL kept in the remote database is the Windows
+# installer, so these systems use the commands instead.
+MACOS_INSTALL_COMMAND = f"curl -fsSL {RAW_FILES}/install-macos.sh | bash"
+LINUX_INSTALL_COMMAND = f"curl -fsSL {RAW_FILES}/install-linux.sh | bash"
 MACOS_INSTALL_PAGE = "https://coursera-downloader.rf.gd/thankyou.html?os=mac"
+LINUX_INSTALL_PAGE = "https://coursera-downloader.rf.gd/thankyou.html?os=linux"
 
 
-def write_macos_update_script():
+def install_command():
+    """The command that installs or updates the app on this system, if any."""
+    if sys.platform == "darwin":
+        return MACOS_INSTALL_COMMAND
+    if sys.platform.startswith("linux"):
+        return LINUX_INSTALL_COMMAND
+    return ""
+
+
+def write_update_script():
     """
-    Write a .command file that runs the install command; Terminal runs such a
-    file when it opens it. Returns its path, or '' if it could not be written.
+    Write a script that runs the install command and then deletes itself.
+    On macOS it is a .command file, which Terminal runs when it opens it.
+    Returns its path, or '' if it could not be written.
     """
     import tempfile
 
+    command = install_command()
+    if not command:
+        return ""
     try:
         handle, path = tempfile.mkstemp(
-            prefix="Update Coursera Downloader-", suffix=".command"
+            prefix="Update Coursera Downloader-",
+            suffix=".command" if sys.platform == "darwin" else ".sh",
         )
+        lines = [
+            "#!/bin/bash",
+            "clear",
+            "echo 'Updating Coursera Full Course Downloader...'",
+            command,
+            'rm -f "$0"',
+        ]
+        if sys.platform != "darwin":
+            # Keep the terminal window open so the result can be read.
+            lines.append("read -r -p 'Press Enter to close this window.' _")
         with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as script:
-            script.write(
-                "#!/bin/bash\n"
-                "clear\n"
-                "echo 'Updating Coursera Full Course Downloader...'\n"
-                f"{MACOS_INSTALL_COMMAND}\n"
-                'rm -f "$0"\n'
-            )
+            script.write("\n".join(lines) + "\n")
         os.chmod(path, 0o755)
         return path
     except OSError:
         return ""
 
 
+def write_macos_update_script():
+    """The update script for macOS (see write_update_script)."""
+    return write_update_script()
+
+
+# Terminal emulators that can run a command: (program, arguments before it).
+LINUX_TERMINALS = [
+    ("x-terminal-emulator", ["-e"]),
+    ("gnome-terminal", ["--"]),
+    ("konsole", ["-e"]),
+    ("xfce4-terminal", ["-x"]),
+    ("mate-terminal", ["-x"]),
+    ("tilix", ["-e"]),
+    ("kitty", []),
+    ("alacritty", ["-e"]),
+    ("xterm", ["-e"]),
+]
+
+
+def linux_terminal_command(script):
+    """The command that runs a script in a terminal window, or None."""
+    for program, arguments in LINUX_TERMINALS:
+        executable = shutil.which(program)
+        if executable:
+            return [executable, *arguments, "bash", script]
+    return None
+
+
 def update_page_url(build_url):
     """Where the app's update link should go on this system."""
-    return MACOS_INSTALL_PAGE if sys.platform == "darwin" else build_url
+    if sys.platform == "darwin":
+        return MACOS_INSTALL_PAGE
+    if sys.platform.startswith("linux"):
+        return LINUX_INSTALL_PAGE
+    return build_url
 
 
+# macOS application names of the supported browsers.
 MACOS_BROWSER_APPS = {
     "firefox": "Firefox",
     "brave": "Brave Browser",
 }
+
+# Linux commands of the supported browsers, in order of preference.
+LINUX_BROWSER_COMMANDS = {
+    "firefox": ["firefox", "firefox-esr"],
+    "brave": ["brave-browser", "brave"],
+}
+
+
+def _open_browser_linux(browser, url):
+    for name in LINUX_BROWSER_COMMANDS.get(browser, []):
+        executable = shutil.which(name)
+        if executable:
+            try:
+                subprocess.Popen(
+                    [executable, url], stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL, start_new_session=True,
+                )
+            except OSError:
+                continue
+            return True
+    return False
 
 
 def _open_browser_macos(browser, url):
@@ -214,6 +286,8 @@ def open_browser(browser, url):
     """Open a URL in a specific supported browser."""
     if sys.platform == "darwin":
         return _open_browser_macos(browser, url)
+    if sys.platform.startswith("linux"):
+        return _open_browser_linux(browser, url)
 
     commands = {
         "firefox": "firefox.exe",

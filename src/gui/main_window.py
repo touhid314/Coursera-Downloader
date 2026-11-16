@@ -771,8 +771,8 @@ class MainWindow(QMainWindow):
 
         clicked = msg_box.clickedButton()
 
-        if clicked == update_btn and sys.platform == "darwin":
-            self.start_macos_update()
+        if clicked == update_btn and general.install_command():
+            self.start_self_update()
         elif clicked == update_btn and latest_version_build_url:
             webbrowser.open(latest_version_build_url)
 
@@ -783,29 +783,34 @@ class MainWindow(QMainWindow):
         # TODO: add do not show again checkbox
         # TODO: maybe close the app when update button is clicked
 
-    def start_macos_update(self):
+    def start_self_update(self):
         """
-        Run the Mac install command in Terminal, then close the app so that it
-        can be replaced. The command is also copied, in case Terminal does not
-        open.
+        Run the install command (macOS, Linux) in a terminal window, then close
+        the app so that it can be replaced. The command is also copied, in case
+        no terminal opens.
         """
-        QApplication.clipboard().setText(general.MACOS_INSTALL_COMMAND)
+        command = general.install_command()
+        QApplication.clipboard().setText(command)
+        paste_key = "Command+V" if sys.platform == "darwin" else "Ctrl+Shift+V"
+        manual_steps = (
+            f"Open a terminal, paste the copied command ({paste_key}) and press "
+            f"Return:\n\n{command}"
+        )
         if self.download_thread and self.download_thread.isRunning():
             QMessageBox.information(
                 self,
                 "Update Coursera Downloader",
-                "Finish or stop the current download first. The update command "
-                "has been copied: paste it in Terminal and press Return to update.",
+                "Finish or stop the current download first, or update now:\n\n"
+                + manual_steps,
             )
             return
-        script = general.write_macos_update_script()
-        if not script or not QProcess.startDetached("open", ["-a", "Terminal", script]):
-            QMessageBox.information(
-                self,
-                "Update Coursera Downloader",
-                "Open Terminal, paste the copied command (Command+V) and press "
-                f"Return:\n\n{general.MACOS_INSTALL_COMMAND}",
-            )
+        script = general.write_update_script()
+        if sys.platform == "darwin":
+            terminal = ["open", "-a", "Terminal", script] if script else None
+        else:
+            terminal = general.linux_terminal_command(script) if script else None
+        if not terminal or not QProcess.startDetached(terminal[0], terminal[1:]):
+            QMessageBox.information(self, "Update Coursera Downloader", manual_steps)
             return
         # The installer replaces this app and opens the new version.
         QApplication.quit()
@@ -1316,6 +1321,9 @@ def run_smoke_test():
     import traceback
 
     try:
+        is_linux = sys.platform.startswith("linux")
+        if is_linux:
+            os.environ.setdefault("QT_API", "pyside6")  # as the login window does
         import keyring
         import rookiepy  # noqa: F401  (browser login)
         import webview  # noqa: F401  (embedded login)
@@ -1324,11 +1332,17 @@ def run_smoke_test():
             importlib.import_module("webview.platforms.cocoa")
         elif sys.platform == "win32":
             importlib.import_module("webview.platforms.edgechromium")
+        elif is_linux:
+            importlib.import_module("webview.platforms.qt")
         backend = type(keyring.get_keyring())
         backend_name = f"{backend.__module__}.{backend.__name__}"
         print("keyring backend:", backend_name)
         if "fail" in backend.__module__ or "null" in backend.__module__:
-            raise RuntimeError(f"no usable credential store: {backend_name}")
+            # Linux desktops without a keyring service (or a headless test
+            # machine) have none; the app then only keeps logins for a session.
+            if not is_linux:
+                raise RuntimeError(f"no usable credential store: {backend_name}")
+            print("warning: no credential store; logins are not remembered")
 
         app = QApplication.instance() or QApplication(sys.argv)
         # Test runs must not be counted as app users or get an installation ID.

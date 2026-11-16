@@ -3,7 +3,7 @@ import sys
 
 def get_help_text():
     # No colors here: the window takes them from the system light/dark theme.
-    if sys.platform == "darwin":
+    if sys.platform != "win32":
         embedded_browser_help = (
             "<li><b>Embedded browser does not open:</b> select <b>Paste login "
             "cookie</b> instead.</li>"

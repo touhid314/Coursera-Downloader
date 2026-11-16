@@ -3,15 +3,27 @@ import os
 import re
 import sys
 
-# This file is release/config/pyinstaller.spec. It builds the Windows app
-# folder and, on macOS, the CourseraDownloader.app bundle.
+# This file is release/config/pyinstaller.spec. It builds the Windows and Linux
+# app folders and, on macOS, the CourseraDownloader.app bundle.
 ROOT = os.path.abspath(os.path.join(SPECPATH, '..', '..'))
 IS_MACOS = sys.platform == 'darwin'
+IS_LINUX = sys.platform.startswith('linux')
+
+# On Linux the login window uses pywebview's Qt backend, loaded at run time.
+LINUX_HIDDEN_IMPORTS = [
+    'webview.platforms.qt',
+    'qtpy',
+    'PySide6.QtWebEngineCore',
+    'PySide6.QtWebEngineWidgets',
+    'PySide6.QtWebChannel',
+    'PySide6.QtNetwork',
+]
 
 with open(os.path.join(ROOT, 'src', '__init__.py'), encoding='utf-8') as f:
     VERSION = re.search(r'__version__ = "([^"]+)"', f.read()).group(1)
 
 # PyInstaller turns the PNG into the .icns file a Mac app needs (with Pillow).
+# Linux programs have no embedded icon; the installer's menu entry uses the PNG.
 ICON = os.path.join(ROOT, 'assets', 'icon', 'icon.png' if IS_MACOS else 'icon.ico')
 
 
@@ -30,7 +42,7 @@ a = Analysis(
             os.path.join('assets', 'icon'),
         ),
     ],
-    hiddenimports=[],
+    hiddenimports=LINUX_HIDDEN_IMPORTS if IS_LINUX else [],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
