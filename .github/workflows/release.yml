@@ -282,3 +282,8 @@ jobs:
             gh release create "$tag" "${files[@]}" --verify-tag \
               --title "Coursera Full Course Downloader $tag" "${notes[@]}"
           fi
+
+  macos-install:
+    name: Test the macOS install command
+    needs: publish
+    uses: ./.github/workflows/macos-install-test.yml

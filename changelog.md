@@ -8,6 +8,8 @@
   newer), as disk images. The embedded login uses the Mac's built-in WebKit,
   logins are kept in the macOS Keychain, and settings are stored in
   `~/Library/Application Support/CourseraDownloader`.
+- `install-macos.sh`: a one-line Terminal install and update for macOS that
+  avoids the security warning for apps that are not notarized.
 
 ### Changed
 

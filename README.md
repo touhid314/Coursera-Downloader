@@ -43,24 +43,30 @@ normally already installed on current Windows 10 and Windows 11 systems.
 
 ## Install on macOS
 
-Requires macOS 13 (Ventura) or newer. From
-[GitHub Releases](https://github.com/touhid314/Coursera-Downloader/releases),
-download the disk image for your Mac:
+Requires macOS 13 (Ventura) or newer, on Apple silicon or Intel. Open
+**Terminal** and run:
 
-- `…-macos-arm64.dmg` for Apple silicon (M1 and newer)
-- `…-macos-x86_64.dmg` for Intel Macs
+```sh
+curl -fsSL https://raw.githubusercontent.com/touhid314/Coursera-Downloader/main/install-macos.sh | bash
+```
 
-Open it and drag **Coursera Downloader** to **Applications**.
+It downloads the latest version for your Mac, installs it in
+**Applications** and opens it. Run it again to update. Installed this way, macOS
+opens the app without the "cannot check it for malware" warning.
 
-The app is not notarized by Apple, so the first time you open it macOS says it
-cannot check it for malware. Open it once anyway: on macOS 15 and newer, open
-**System Settings → Privacy & Security** and click **Open Anyway** next to the
-message about Coursera Downloader; on macOS 13 and 14, Control-click the app
-and choose **Open**. Alternatively, run this in Terminal:
+<details>
+<summary>Install from the disk image instead</summary>
+
+From [GitHub Releases](https://github.com/touhid314/Coursera-Downloader/releases),
+download `…-macos-arm64.dmg` (Apple silicon) or `…-macos-x86_64.dmg` (Intel),
+open it and drag **Coursera Downloader** to **Applications**. The app is not
+notarized by Apple, so macOS then blocks it until you run:
 
 ```sh
 xattr -dr com.apple.quarantine "/Applications/Coursera Downloader.app"
 ```
+
+</details>
 
 ## Quick start
 

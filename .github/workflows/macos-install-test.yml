@@ -1,0 +1,52 @@
+name: macOS install command test
+
+# Installs the latest published release with install-macos.sh, as users do,
+# on Apple silicon and Intel Macs, and checks that the installed app starts.
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: Install on macOS (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Check out the source
+        uses: actions/checkout@v7
+
+      - name: Run the install command
+        env:
+          COURSERA_DL_NO_OPEN: "1"
+        run: bash install-macos.sh
+
+      - name: Check the installed app
+        run: |
+          app="/Applications/Coursera Downloader.app"
+          binary="$app/Contents/MacOS/CourseraDownloader"
+          file "$binary" | grep -q "${{ matrix.arch }}"
+          # No quarantine flag: macOS opens the app without a security warning.
+          if xattr -p com.apple.quarantine "$app" 2>/dev/null; then
+            echo "The installed app is quarantined"; exit 1
+          fi
+          codesign --verify --deep --strict "$app"
+          "$binary" --smoke-test | tee smoke.log
+          grep -q "SMOKE TEST OK" smoke.log
+
+      - name: Run it again to update an existing installation
+        env:
+          COURSERA_DL_NO_OPEN: "1"
+        run: |
+          bash install-macos.sh
+          test -d "/Applications/Coursera Downloader.app"

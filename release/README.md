@@ -74,8 +74,12 @@ release/artifacts/app/CourseraDownloader.app/Contents/MacOS/CourseraDownloader -
 ```
 
 The app is signed ad hoc, not with an Apple Developer ID, and is not
-notarized, so users must allow it once in **Privacy & Security** (see the
-release notes). The packaged Mac app keeps its settings in
+notarized. Users install it with `install-macos.sh` (see the README), which
+downloads with curl so the app is not quarantined and opens without a security
+warning. The script picks the newest release's `-macos-<arch>.dmg`, so keep
+that file name pattern. After each release, the workflow runs
+`.github/workflows/macos-install-test.yml` to install the published release
+with the script on both Mac architectures. The packaged Mac app keeps its settings in
 `~/Library/Application Support/CourseraDownloader`, not in the bundle.
 
 ## Notes
