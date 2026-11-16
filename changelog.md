@@ -1,5 +1,15 @@
 # Changelog
 
+## v4.2.1
+
+### Fixed
+
+- macOS: the **Update** button of the "Update available" message opened the
+  Windows installer. It now opens Terminal running the Mac install command,
+  which installs the new version and reopens the app. The command is also
+  copied to the clipboard. The "Click to update" link goes to the Mac install
+  page.
+
 ## v4.2.0
 
 ### Added
