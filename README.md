@@ -1,6 +1,6 @@
 # Coursera Full Course Downloader
 
-A Windows GUI app for downloading complete Coursera courses and specializations in one go.
+A Windows and macOS app for downloading complete Coursera courses and specializations in one go.
 
 1. Login to Coursera.
 2. Select one of your enrolled course, or paste the homepage URL of a course/specialization.
@@ -41,6 +41,27 @@ desktop or Start menu.
 The embedded login requires the Microsoft Edge WebView2 Runtime, which is
 normally already installed on current Windows 10 and Windows 11 systems.
 
+## Install on macOS
+
+Requires macOS 13 (Ventura) or newer. From
+[GitHub Releases](https://github.com/touhid314/Coursera-Downloader/releases),
+download the disk image for your Mac:
+
+- `…-macos-arm64.dmg` for Apple silicon (M1 and newer)
+- `…-macos-x86_64.dmg` for Intel Macs
+
+Open it and drag **Coursera Downloader** to **Applications**.
+
+The app is not notarized by Apple, so the first time you open it macOS says it
+cannot check it for malware. Open it once anyway: on macOS 15 and newer, open
+**System Settings → Privacy & Security** and click **Open Anyway** next to the
+message about Coursera Downloader; on macOS 13 and 14, Control-click the app
+and choose **Open**. Alternatively, run this in Terminal:
+
+```sh
+xattr -dr com.apple.quarantine "/Applications/Coursera Downloader.app"
+```
+
 ## Quick start
 
 1. Keep **Embedded browser** selected and click **Open Coursera login**.
@@ -67,6 +88,14 @@ python -m venv .venv
 .venv\Scripts\python.exe main.py
 ```
 
+On macOS:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python main.py
+```
+
 ## Development
 
 Install the development tools and run the automated tests:
@@ -76,7 +105,7 @@ Install the development tools and run the automated tests:
 .venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-The Windows release process is documented in
+The release process is documented in
 [`release/README.md`](release/README.md). The short version is:
 
 ```text
@@ -89,7 +118,7 @@ release\build_installer.bat
 ```text
 main.py            Application entry point
 run_gui.bat        Source launcher for Windows
-src/gui/           PySide6 interface, login window, and Windows integration
+src/gui/           PySide6 interface, login window, and taskbar integration
 src/core/          Coursera syllabus and download engine
 src/services/      Authentication, settings, updates, and notifications
 assets/            Application icons and static assets

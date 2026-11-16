@@ -53,6 +53,18 @@ jobs:
           --distpath release/artifacts/app
           --workpath release/work
 
+      - name: Smoke-test a copy of the built app
+        shell: pwsh
+        run: |
+          # A copy, so that the packaged settings file stays untouched.
+          $copy = Join-Path $env:RUNNER_TEMP "smoke-app"
+          Copy-Item "release/artifacts/app/CourseraDownloader" $copy -Recurse
+          $app = Start-Process (Join-Path $copy "CourseraDownloader.exe") `
+            -ArgumentList "--smoke-test" -Wait -PassThru
+          if ($app.ExitCode -ne 0) {
+            throw "The smoke test failed with exit code $($app.ExitCode)"
+          }
+
       - name: Create the portable ZIP
         shell: pwsh
         run: |
@@ -173,7 +185,13 @@ jobs:
           settings="$HOME/Library/Application Support/CourseraDownloader/data.bin"
           rm -f "$settings"
 
-          "$app/Contents/MacOS/CourseraDownloader" --smoke-test | tee smoke.log
+          mkdir -p screenshots
+          SMOKE_TEST_SECONDS=12 "$app/Contents/MacOS/CourseraDownloader" --smoke-test > smoke.log 2>&1 &
+          pid=$!
+          sleep 9
+          screencapture -x screenshots/main-window.png || true
+          wait "$pid" || true
+          cat smoke.log
           grep -q "SMOKE TEST OK" smoke.log
           test -f "$settings"
           # Settings must not be written into the signed bundle.
@@ -188,6 +206,7 @@ jobs:
           "$app/Contents/MacOS/CourseraDownloader" --webview-login --webview-result "$result" &
           pid=$!
           sleep 30
+          screencapture -x screenshots/login-window.png || true
           if ! kill -0 "$pid" 2>/dev/null; then
             echo "The login window exited early:"; cat "$result"; exit 1
           fi
@@ -195,6 +214,14 @@ jobs:
           if grep -q "COURsera_ERROR" "$result"; then
             echo "The login window reported an error:"; cat "$result"; exit 1
           fi
+
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots-${{ matrix.arch }}
+          path: screenshots/
+          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v7
         with:
@@ -215,6 +242,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           path: downloads
+          pattern: "{windows,macos-*}"
           merge-multiple: true
 
       - name: Write SHA-256 checksums

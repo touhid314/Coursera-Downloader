@@ -1,5 +1,5 @@
 #define AppName "Coursera Full Course Downloader"
-#define AppVersion "4.1.1"
+#define AppVersion "4.2.0"
 #define AppPublisher "Touhidul Islam"
 #define AppExeName "CourseraDownloader.exe"
 

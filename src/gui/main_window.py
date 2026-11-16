@@ -1294,16 +1294,24 @@ def run_smoke_test():
             importlib.import_module("webview.platforms.cocoa")
         elif sys.platform == "win32":
             importlib.import_module("webview.platforms.edgechromium")
-        print("keyring backend:", type(keyring.get_keyring()).__name__)
+        backend = type(keyring.get_keyring())
+        backend_name = f"{backend.__module__}.{backend.__name__}"
+        print("keyring backend:", backend_name)
+        if "fail" in backend.__module__ or "null" in backend.__module__:
+            raise RuntimeError(f"no usable credential store: {backend_name}")
 
         app = QApplication.instance() or QApplication(sys.argv)
+        # Test runs must not be counted as app users or get an installation ID.
+        MainWindow.connect_to_db = lambda self: None
         win = MainWindow()
         print("settings file:", win.localdb.filename)
         win.localdb.update('argdict.path', win.localdb.read('argdict')['path'])
         if win.windowIcon().isNull():
             raise RuntimeError(f"window icon missing: {paths.ICON_FILE}")
         win.show()
-        QTimer.singleShot(1500, app.quit)
+        # Long enough for a screenshot when the release workflow asks for one.
+        seconds = float(os.environ.get("SMOKE_TEST_SECONDS", "1.5"))
+        QTimer.singleShot(int(seconds * 1000), app.quit)
         app.exec()
         win.close()
     except BaseException:

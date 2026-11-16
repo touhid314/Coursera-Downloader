@@ -1,6 +1,6 @@
 # Release workspace
 
-Everything needed to build and publish the Windows app lives here. Generated
+Everything needed to build and publish the Windows and macOS apps lives here. Generated
 files and historical releases are kept separate from the active configuration.
 
 ## Folder layout
@@ -51,12 +51,32 @@ Run all commands from the project root.
     ```
 
 11. Pushing the tag starts `.github/workflows/release.yml`. It runs the tests,
-    builds the portable app and installer on Windows, and creates the GitHub
-    release with both downloads and their SHA-256 checksums.
+    builds the portable app and installer on Windows and the Apple silicon and
+    Intel disk images on macOS, smoke-tests the installed Mac app, and creates
+    the GitHub release with all downloads and their SHA-256 checksums. If the
+    release already exists, it adds or replaces the downloads.
 12. Update the project website's download link to the new GitHub release and
     verify the public download from a browser.
 
 Replace `4.0.0` in the example tag when preparing a later release.
+
+## macOS builds
+
+macOS builds need a Mac, so they are made by the workflow. To build and test
+without publishing, run **Actions → Release → Run workflow** on any branch;
+the builds appear as artifacts of that run. On a Mac, the same build can be
+made locally:
+
+```sh
+python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m PyInstaller release/config/pyinstaller.spec --noconfirm --clean   --distpath release/artifacts/app --workpath release/work
+release/artifacts/app/CourseraDownloader.app/Contents/MacOS/CourseraDownloader --smoke-test
+```
+
+The app is signed ad hoc, not with an Apple Developer ID, and is not
+notarized, so users must allow it once in **Privacy & Security** (see the
+release notes). The packaged Mac app keeps its settings in
+`~/Library/Application Support/CourseraDownloader`, not in the bundle.
 
 ## Notes
 

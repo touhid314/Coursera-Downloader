@@ -1,5 +1,20 @@
 # Changelog
 
+## v4.2.0
+
+### Added
+
+- **macOS app.** Downloads for Apple silicon and Intel Macs (macOS 13 or
+  newer), as disk images. The embedded login uses the Mac's built-in WebKit,
+  logins are kept in the macOS Keychain, and settings are stored in
+  `~/Library/Application Support/CourseraDownloader`.
+
+### Changed
+
+- Each release is now built, tested and published by one workflow for
+  Windows and macOS. It also updates a release that was created by hand,
+  which the previous workflow failed on.
+
 ## v4.1.1
 
 ### Security
