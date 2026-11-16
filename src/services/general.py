@@ -159,6 +159,31 @@ MACOS_INSTALL_COMMAND = (
 MACOS_INSTALL_PAGE = "https://coursera-downloader.rf.gd/thankyou.html?os=mac"
 
 
+def write_macos_update_script():
+    """
+    Write a .command file that runs the install command; Terminal runs such a
+    file when it opens it. Returns its path, or '' if it could not be written.
+    """
+    import tempfile
+
+    try:
+        handle, path = tempfile.mkstemp(
+            prefix="Update Coursera Downloader-", suffix=".command"
+        )
+        with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as script:
+            script.write(
+                "#!/bin/bash\n"
+                "clear\n"
+                "echo 'Updating Coursera Full Course Downloader...'\n"
+                f"{MACOS_INSTALL_COMMAND}\n"
+                'rm -f "$0"\n'
+            )
+        os.chmod(path, 0o755)
+        return path
+    except OSError:
+        return ""
+
+
 def update_page_url(build_url):
     """Where the app's update link should go on this system."""
     return MACOS_INSTALL_PAGE if sys.platform == "darwin" else build_url

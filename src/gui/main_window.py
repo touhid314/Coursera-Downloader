@@ -784,17 +784,31 @@ class MainWindow(QMainWindow):
         # TODO: maybe close the app when update button is clicked
 
     def start_macos_update(self):
-        """Copy the install command and open Terminal, where the user runs it."""
+        """
+        Run the Mac install command in Terminal, then close the app so that it
+        can be replaced. The command is also copied, in case Terminal does not
+        open.
+        """
         QApplication.clipboard().setText(general.MACOS_INSTALL_COMMAND)
-        QProcess.startDetached("open", ["-a", "Terminal"])
-        QMessageBox.information(
-            self,
-            "Update Coursera Downloader",
-            "The update command has been copied, and Terminal is opening.\n\n"
-            "In Terminal, paste the command (Command+V) and press Return. "
-            "It closes this app, installs the new version and opens it.\n\n"
-            f"The command:\n{general.MACOS_INSTALL_COMMAND}",
-        )
+        if self.download_thread and self.download_thread.isRunning():
+            QMessageBox.information(
+                self,
+                "Update Coursera Downloader",
+                "Finish or stop the current download first. The update command "
+                "has been copied: paste it in Terminal and press Return to update.",
+            )
+            return
+        script = general.write_macos_update_script()
+        if not script or not QProcess.startDetached("open", ["-a", "Terminal", script]):
+            QMessageBox.information(
+                self,
+                "Update Coursera Downloader",
+                "Open Terminal, paste the copied command (Command+V) and press "
+                f"Return:\n\n{general.MACOS_INSTALL_COMMAND}",
+            )
+            return
+        # The installer replaces this app and opens the new version.
+        QApplication.quit()
 
     def show_notification(self, notification):
         """

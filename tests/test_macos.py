@@ -109,3 +109,12 @@ class MacUpdateTests(TestCase):
         for name in ("install-macos.sh", "README.md"):
             with open(os.path.join(root, name), encoding="utf-8") as f:
                 self.assertIn(general.MACOS_INSTALL_COMMAND, f.read(), name)
+
+    def test_update_script_runs_the_install_command(self):
+        path = general.write_macos_update_script()
+        self.addCleanup(lambda: os.path.exists(path) and os.remove(path))
+        self.assertTrue(path.endswith(".command"))
+        with open(path, encoding="utf-8") as f:
+            script = f.read()
+        self.assertTrue(script.startswith("#!/bin/bash\n"))
+        self.assertIn(general.MACOS_INSTALL_COMMAND + "\n", script)

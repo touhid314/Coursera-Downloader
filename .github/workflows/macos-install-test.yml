@@ -50,3 +50,28 @@ jobs:
         run: |
           bash install-macos.sh
           test -d "/Applications/Coursera Downloader.app"
+
+      - name: Update through Terminal, as the app's Update button does
+        run: |
+          app="/Applications/Coursera Downloader.app"
+          rm -rf "$app"
+          # The app writes this .command file and opens it with Terminal.
+          script=$(python3 - <<'EOF'
+          import sys, types
+          for name in ("rookiepy", "keyring", "requests"):
+              sys.modules[name] = types.ModuleType(name)
+          from src.services.general import write_macos_update_script
+          print(write_macos_update_script())
+          EOF
+          )
+          echo "Update script: $script"
+          cat "$script"
+          open -a Terminal "$script"
+          # The script reinstalls the app and then deletes itself.
+          for _ in $(seq 1 90); do
+            if [ -d "$app" ] && [ ! -e "$script" ]; then break; fi
+            sleep 2
+          done
+          test -d "$app" || { echo "Terminal did not install the app"; exit 1; }
+          test ! -e "$script" || { echo "The update script did not finish"; exit 1; }
+          pkill -x CourseraDownloader || true
