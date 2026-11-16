@@ -34,13 +34,14 @@ else
 fi
 
 echo "Finding the latest release for $chip Macs..."
-release=$(curl -fsSL -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/$REPO/releases/latest") \
+# The latest-release page redirects to the newest tag. (GitHub's API would
+# also work, but it limits how often one address may ask.)
+latest=$(curl -fsSL -o /dev/null -w '%{url_effective}' \
+    "https://github.com/$REPO/releases/latest") \
     || fail "could not reach GitHub. Check your internet connection."
-url=$(printf '%s\n' "$release" \
-    | grep -o '"browser_download_url": *"[^"]*-macos-'"$arch"'\.dmg"' \
-    | head -n 1 | sed 's/.*"\(https[^"]*\)"/\1/')
-[ -n "$url" ] || fail "the latest release has no download for $chip Macs."
+tag="${latest##*/}"
+case "$tag" in v[0-9]*) ;; *) fail "could not find the latest release." ;; esac
+url="https://github.com/$REPO/releases/download/$tag/CourseraDownloader-$tag-macos-$arch.dmg"
 
 work=$(mktemp -d)
 mount_point="$work/mount"
