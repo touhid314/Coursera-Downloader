@@ -48,14 +48,17 @@ mkdir -p "$work/app"
 tar -xzf "$work/app.tar.gz" -C "$work/app" || fail "could not unpack the download."
 [ -x "$work/app/CourseraDownloader/CourseraDownloader" ] || fail "the download is incomplete."
 
-# Close a running copy before replacing it.
-if pgrep -x CourseraDownloader >/dev/null; then
+# Close a running copy before replacing it. (Linux shortens process names to
+# 15 characters, so match the program's path instead of its name.)
+running="$INSTALL_DIR/CourseraDownloader"
+if pgrep -f "$running" >/dev/null; then
     echo "Closing the running Coursera Downloader..."
-    pkill -x CourseraDownloader || true
+    pkill -f "$running" || true
     for _ in 1 2 3 4 5 6 7 8 9 10; do
-        pgrep -x CourseraDownloader >/dev/null || break
+        pgrep -f "$running" >/dev/null || break
         sleep 1
     done
+    pkill -9 -f "$running" 2>/dev/null || true
 fi
 
 echo "Installing to $INSTALL_DIR..."
@@ -84,15 +87,20 @@ command -v update-desktop-database >/dev/null \
 echo "Coursera Full Course Downloader is installed."
 echo "Open it from the applications menu, or run: coursera-downloader"
 
-# Qt needs a few system libraries that most desktops have; say which are missing.
-missing=$(LD_LIBRARY_PATH="$INSTALL_DIR/_internal" ldd \
-    "$INSTALL_DIR"/_internal/PySide6/Qt/plugins/platforms/libqxcb.so 2>/dev/null \
-    | grep "not found" | awk '{print $1}' | sort -u | tr '\n' ' ' || true)
+# The window (Qt) and the login window (Qt WebEngine) need some system
+# libraries that desktops have; say which are missing.
+internal="$INSTALL_DIR/_internal"
+missing=$(for file in \
+        "$internal/PySide6/Qt/plugins/platforms/libqxcb.so" \
+        "$internal/libQt6WebEngineCore.so.6" \
+        "$internal/PySide6/Qt/libexec/QtWebEngineProcess"; do
+    [ -e "$file" ] && LD_LIBRARY_PATH="$internal:$internal/PySide6/Qt/lib" ldd "$file" 2>/dev/null
+done | grep "not found" | awk '{print $1}' | sort -u | tr '\n' ' ' || true)
 if [ -n "$missing" ]; then
     echo
     echo "Note: these system libraries are missing: $missing"
-    echo "On Ubuntu or Debian, install them with:"
-    echo "  sudo apt install libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libegl1"
+    echo "On Ubuntu or Debian, this installs the usual ones:"
+    echo "  sudo apt install libegl1 libgl1 libnss3 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libxkbfile1 libfontconfig1 libdbus-1-3"
 fi
 
 if [ -z "${COURSERA_DL_NO_OPEN:-}" ] && { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; }; then

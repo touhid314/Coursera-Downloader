@@ -294,6 +294,8 @@ jobs:
 
       - name: Create the archive
         run: |
+          # Needed by the login window on minimal systems such as WSL.
+          ls -l release/artifacts/app/CourseraDownloader/_internal/libwayland-server.so.0
           archive="release/artifacts/CourseraDownloader-v$VERSION-linux-x86_64.tar.gz"
           tar -czf "$archive" -C release/artifacts/app CourseraDownloader
           ls -l "$archive"

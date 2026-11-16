@@ -19,6 +19,27 @@ LINUX_HIDDEN_IMPORTS = [
     'PySide6.QtNetwork',
 ]
 
+
+
+def linux_system_library(name):
+    """Path of a system library, from the dynamic linker's cache."""
+    import subprocess
+    listing = subprocess.run(
+        ['ldconfig', '-p'], capture_output=True, text=True, check=True
+    ).stdout
+    for line in listing.splitlines():
+        if line.strip().startswith(name + ' ') and 'x86-64' in line:
+            return line.split('=>')[-1].strip()
+    raise SystemExit(f'{name} was not found; install it on the build machine')
+
+
+# PyInstaller leaves out the Wayland libraries, but Qt WebEngine (the Linux
+# login window) needs libwayland-server, which minimal systems such as WSL
+# do not have. Its interface is stable, so the bundled copy works everywhere.
+LINUX_BINARIES = (
+    [(linux_system_library('libwayland-server.so.0'), '.')] if IS_LINUX else []
+)
+
 with open(os.path.join(ROOT, 'src', '__init__.py'), encoding='utf-8') as f:
     VERSION = re.search(r'__version__ = "([^"]+)"', f.read()).group(1)
 
@@ -30,7 +51,7 @@ ICON = os.path.join(ROOT, 'assets', 'icon', 'icon.png' if IS_MACOS else 'icon.ic
 a = Analysis(
     [os.path.join(ROOT, 'main.py')],
     pathex=[ROOT],
-    binaries=[],
+    binaries=LINUX_BINARIES,
     datas=[
         (os.path.join(SPECPATH, 'default_data', 'data.bin'), '.'),
         (
