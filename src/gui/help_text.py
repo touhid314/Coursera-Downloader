@@ -1,6 +1,22 @@
+import sys
+
+
 def get_help_text():
     # No colors here: the window takes them from the system light/dark theme.
-    return """
+    if sys.platform == "darwin":
+        embedded_browser_help = (
+            "<li><b>Embedded browser does not open:</b> select <b>Paste login "
+            "cookie</b> instead.</li>"
+        )
+        progress_place = ""
+    else:
+        embedded_browser_help = (
+            '<li><b>Embedded browser does not open:</b> install the '
+            '<a href="https://developer.microsoft.com/microsoft-edge/webview2/">'
+            "Microsoft Edge WebView2 Runtime</a>.</li>"
+        )
+        progress_place = ", and on the app's taskbar button"
+    return f"""
     <h2>Quick start</h2>
     <ol>
       <li><b>Log in.</b> Follow the steps under <i>Logging in</i> below. The
@@ -12,7 +28,7 @@ def get_help_text():
       <li><b>Choose your options.</b> Select a download folder, video resolution
           and subtitle language.</li>
       <li><b>Click Download.</b> Progress appears in the app, just below the
-          buttons, and on the app's taskbar button.</li>
+          buttons{progress_place}.</li>
     </ol>
 
     <h2>Logging in</h2>
@@ -59,9 +75,7 @@ def get_help_text():
           you are enrolled in the course on coursera.org.</li>
       <li><b>Browser login does not work:</b> select <b>Embedded browser</b>
           instead.</li>
-      <li><b>Embedded browser does not open:</b> install the
-          <a href="https://developer.microsoft.com/microsoft-edge/webview2/">Microsoft
-          Edge WebView2 Runtime</a>.</li>
+      {embedded_browser_help}
       <li><b>Some files failed:</b> click <b>Resume</b> to try them again.</li>
       <li><b>Connection error:</b> check your internet connection, then click
           <b>Resume</b>.</li>

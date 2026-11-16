@@ -1,6 +1,9 @@
 import base64
 import os
+import sys
 import time
+
+from .. import paths
 
 
 RESULT_PREFIX = "COURsera_AUTH::"
@@ -32,15 +35,12 @@ def _cookie_value(cookies, name):
 
 
 def run_webview_login(result_path=None):
-    """Run WebView2 in its own process and return the resulting CAUTH cookie."""
+    """Run the login window (WebView2 on Windows, WebKit on macOS) in its own process."""
     try:
         import webview
 
-        storage_path = os.path.join(
-            os.environ.get("APPDATA", os.getcwd()),
-            "CourseraDownloader",
-            "WebView2",
-        )
+        storage_path = os.path.join(paths.user_data_dir(), "WebView2")
+        os.makedirs(storage_path, exist_ok=True)
         window = webview.create_window(
             "Log in to Coursera",
             "https://www.coursera.org/?authMode=login",
@@ -74,7 +74,8 @@ def run_webview_login(result_path=None):
         webview.start(
             watch_for_login,
             window,
-            gui="edgechromium",
+            # macOS uses its built-in WebKit (pywebview's default there).
+            gui="edgechromium" if sys.platform == "win32" else None,
             private_mode=False,
             storage_path=storage_path,
         )

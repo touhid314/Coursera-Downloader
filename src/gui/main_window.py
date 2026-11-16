@@ -507,10 +507,11 @@ class MainWindow(QMainWindow):
 
     def paste_login_cookie(self):
         """Let the user paste the CAUTH cookie from a browser they are logged in to."""
+        devtools_key = "Option+Command+I" if sys.platform == "darwin" else "F12"
         text, accepted = QInputDialog.getText(
             self,
             "Paste login cookie",
-            "Log in to coursera.org in any browser. Then press F12, open\n"
+            f"Log in to coursera.org in any browser. Then press {devtools_key}, open\n"
             "Application (Chrome, Edge, Brave) or Storage (Firefox) → Cookies →\n"
             "https://www.coursera.org, and copy the value of the CAUTH cookie.\n\n"
             "CAUTH cookie:",
@@ -1266,7 +1267,48 @@ def main():
                 result_path = sys.argv[result_index]
         sys.exit(run_webview_login(result_path))
 
+    if "--smoke-test" in sys.argv:
+        sys.exit(run_smoke_test())
+
     app = QApplication(sys.argv)
     win = MainWindow()
     win.show()
     sys.exit(app.exec())
+
+
+def run_smoke_test():
+    """
+    Check that a packaged build starts: everything it needs is bundled, its
+    settings file can be written, and the main window opens. Used by the
+    release workflow; prints SMOKE TEST OK and returns 0 on success.
+    """
+    import importlib
+    import traceback
+
+    try:
+        import keyring
+        import rookiepy  # noqa: F401  (browser login)
+        import webview  # noqa: F401  (embedded login)
+
+        if sys.platform == "darwin":
+            importlib.import_module("webview.platforms.cocoa")
+        elif sys.platform == "win32":
+            importlib.import_module("webview.platforms.edgechromium")
+        print("keyring backend:", type(keyring.get_keyring()).__name__)
+
+        app = QApplication.instance() or QApplication(sys.argv)
+        win = MainWindow()
+        print("settings file:", win.localdb.filename)
+        win.localdb.update('argdict.path', win.localdb.read('argdict')['path'])
+        if win.windowIcon().isNull():
+            raise RuntimeError(f"window icon missing: {paths.ICON_FILE}")
+        win.show()
+        QTimer.singleShot(1500, app.quit)
+        app.exec()
+        win.close()
+    except BaseException:
+        traceback.print_exc()
+        print("SMOKE TEST FAILED", flush=True)
+        return 1
+    print("SMOKE TEST OK", flush=True)
+    return 0

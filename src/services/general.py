@@ -149,8 +149,33 @@ def get_default_browser():
     return next((name for marker, name in browser_ids.items() if marker in prog_id), None)
 
 
+# macOS application names of the supported browsers.
+MACOS_BROWSER_APPS = {
+    "firefox": "Firefox",
+    "brave": "Brave Browser",
+}
+
+
+def _open_browser_macos(browser, url):
+    app_name = MACOS_BROWSER_APPS.get(browser)
+    if not app_name:
+        return False
+    # "open -a" fails (exit code 1) when the browser is not installed.
+    try:
+        result = subprocess.run(
+            ["open", "-a", app_name, url],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
+
+
 def open_browser(browser, url):
-    """Open a URL in a specific supported browser on Windows."""
+    """Open a URL in a specific supported browser."""
+    if sys.platform == "darwin":
+        return _open_browser_macos(browser, url)
+
     commands = {
         "firefox": "firefox.exe",
         "brave": "brave.exe",
