@@ -168,8 +168,15 @@ jobs:
           mkdir -p "$staging"
           ditto "release/artifacts/app/CourseraDownloader.app" "$staging/Coursera Downloader.app"
           ln -s /Applications "$staging/Applications"
-          hdiutil create -volname "Coursera Downloader" -srcfolder "$staging" \
-            -ov -format UDZO "$dmg"
+          # hdiutil sometimes fails with "Resource busy" on GitHub's runners.
+          for attempt in 1 2 3 4 5; do
+            if hdiutil create -volname "Coursera Downloader" -srcfolder "$staging" \
+              -ov -format UDZO "$dmg"; then
+              break
+            fi
+            if [ "$attempt" = 5 ]; then exit 1; fi
+            sleep $((attempt * 10))
+          done
           echo "DMG=$dmg" >> "$GITHUB_ENV"
 
       - name: Install from the disk image and test the installed app
