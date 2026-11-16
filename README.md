@@ -1,6 +1,6 @@
 # Coursera Full Course Downloader
 
-A Windows and macOS app for downloading complete Coursera courses and specializations in one go.
+A Windows, macOS and Linux app for downloading complete Coursera courses and specializations in one go.
 
 1. Login to Coursera.
 2. Select one of your enrolled course, or paste the homepage URL of a course/specialization.
@@ -68,6 +68,25 @@ xattr -dr com.apple.quarantine "/Applications/Coursera Downloader.app"
 
 </details>
 
+## Install on Linux
+
+For 64-bit (x86-64) Linux, such as Ubuntu 22.04 or newer. Open a terminal and
+run:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/touhid314/Coursera-Downloader/main/install-linux.sh | bash
+```
+
+It installs the latest version in `~/.local/share/coursera-downloader`, adds
+**Coursera Full Course Downloader** to the applications menu, and adds the
+`coursera-downloader` command. No administrator rights are needed. Run it again
+to update. To uninstall, delete that folder,
+`~/.local/bin/coursera-downloader` and
+`~/.local/share/applications/coursera-downloader.desktop`.
+
+Logins are remembered when the desktop has a keyring service (GNOME Keyring
+or KWallet).
+
 ## Quick start
 
 1. Keep **Embedded browser** selected and click **Open Coursera login**.
@@ -94,7 +113,7 @@ python -m venv .venv
 .venv\Scripts\python.exe main.py
 ```
 
-On macOS:
+On macOS or Linux:
 
 ```sh
 python3 -m venv .venv

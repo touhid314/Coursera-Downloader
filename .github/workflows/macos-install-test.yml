@@ -1,7 +1,8 @@
-name: macOS install command test
+name: Install command test
 
-# Installs the latest published release with install-macos.sh, as users do,
-# on Apple silicon and Intel Macs, and checks that the installed app starts.
+# Installs the latest published release with install-macos.sh (Apple silicon
+# and Intel Macs) and install-linux.sh (Ubuntu), as users do, and checks that
+# the installed app starts.
 on:
   workflow_dispatch:
   workflow_call:
@@ -75,3 +76,34 @@ jobs:
           test -d "$app" || { echo "Terminal did not install the app"; exit 1; }
           test ! -e "$script" || { echo "The update script did not finish"; exit 1; }
           pkill -x CourseraDownloader || true
+
+  linux:
+    name: Install on Linux (Ubuntu 24.04)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out the source
+        uses: actions/checkout@v7
+
+      - name: Install a virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth
+
+      - name: Run the install command
+        env:
+          COURSERA_DL_NO_OPEN: "1"
+        run: bash install-linux.sh
+
+      - name: Check the installed app
+        run: |
+          test -f "$HOME/.local/share/applications/coursera-downloader.desktop"
+          xvfb-run -a "$HOME/.local/bin/coursera-downloader" --smoke-test | tee smoke.log
+          grep -q "SMOKE TEST OK" smoke.log
+
+      - name: Run it again to update an existing installation
+        env:
+          COURSERA_DL_NO_OPEN: "1"
+        run: |
+          bash install-linux.sh
+          test -x "$HOME/.local/share/coursera-downloader/CourseraDownloader"

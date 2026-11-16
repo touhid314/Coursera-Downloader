@@ -400,7 +400,7 @@ jobs:
               --title "Coursera Full Course Downloader $tag" "${notes[@]}"
           fi
 
-  macos-install:
-    name: Test the macOS install command
+  install-test:
+    name: Test the install commands
     needs: publish
     uses: ./.github/workflows/macos-install-test.yml

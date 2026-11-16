@@ -52,12 +52,28 @@ def _webview_backend():
     return None
 
 
+def _prepare_linux_web_engine():
+    """
+    Settings for Qt WebEngine on Linux, made before Qt loads.
+
+    The login window renders in software: without a working OpenGL driver
+    (for example in WSL, in virtual machines, or with broken drivers) Qt
+    WebEngine otherwise aborts at start. A login page does not need the GPU.
+    """
+    # pywebview's Qt backend, on the PySide6 the app already ships.
+    os.environ.setdefault("QT_API", "pyside6")
+    os.environ.setdefault("QT_QUICK_BACKEND", "software")
+    os.environ.setdefault("QT_XCB_GL_INTEGRATION", "none")
+    flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "")
+    if "--disable-gpu" not in flags.split():
+        os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = f"{flags} --disable-gpu".strip()
+
+
 def run_webview_login(result_path=None):
     """Run the Coursera login window in its own process."""
     try:
         if sys.platform.startswith("linux"):
-            # pywebview's Qt backend, on the PySide6 the app already ships.
-            os.environ.setdefault("QT_API", "pyside6")
+            _prepare_linux_web_engine()
         import webview
 
         storage_path = os.path.join(paths.user_data_dir(), "WebView2")

@@ -48,17 +48,26 @@ mkdir -p "$work/app"
 tar -xzf "$work/app.tar.gz" -C "$work/app" || fail "could not unpack the download."
 [ -x "$work/app/CourseraDownloader/CourseraDownloader" ] || fail "the download is incomplete."
 
-# Close a running copy before replacing it. (Linux shortens process names to
-# 15 characters, so match the program's path instead of its name.)
-running="$INSTALL_DIR/CourseraDownloader"
-if pgrep -f "$running" >/dev/null; then
+# Close a running copy before replacing it. Processes are matched by their
+# program file: names are cut to 15 characters, and the command line shows
+# whichever path (such as the coursera-downloader link) started it.
+app_pids() {
+    for proc in /proc/[0-9]*; do
+        [ "$(readlink "$proc/exe" 2>/dev/null)" = "$INSTALL_DIR/CourseraDownloader" ] \
+            && echo "${proc#/proc/}"
+    done
+    return 0
+}
+pids=$(app_pids)
+if [ -n "$pids" ]; then
     echo "Closing the running Coursera Downloader..."
-    pkill -f "$running" || true
+    kill $pids 2>/dev/null || true
     for _ in 1 2 3 4 5 6 7 8 9 10; do
-        pgrep -f "$running" >/dev/null || break
+        [ -z "$(app_pids)" ] && break
         sleep 1
     done
-    pkill -9 -f "$running" 2>/dev/null || true
+    pids=$(app_pids)
+    [ -n "$pids" ] && kill -9 $pids 2>/dev/null || true
 fi
 
 echo "Installing to $INSTALL_DIR..."

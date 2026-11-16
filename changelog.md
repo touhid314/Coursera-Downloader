@@ -1,5 +1,18 @@
 # Changelog
 
+## v4.3.0
+
+### Added
+
+- **Linux app** for 64-bit (x86-64) Linux, such as Ubuntu 22.04 or newer.
+  `install-linux.sh` installs or updates it with one command, without
+  administrator rights, and adds it to the applications menu. The embedded
+  login uses Qt WebEngine; Firefox and Brave logins and pasting the cookie also
+  work. Logins are kept in the desktop's keyring when it has one. Settings are
+  stored in `~/.local/share/CourseraDownloader`.
+- On Linux, the **Update** button of the "Update available" message opens a
+  terminal that installs the new version.
+
 ## v4.2.1
 
 ### Fixed
