@@ -203,6 +203,7 @@ jobs:
           # must still be running, without reporting an error, after a while.
           app="/Applications/Coursera Downloader.app"
           result=$(mktemp)
+          export SMOKE_TEST_COOKIE_NAMES_FILE=$(mktemp)
           "$app/Contents/MacOS/CourseraDownloader" --webview-login --webview-result "$result" &
           pid=$!
           sleep 30
@@ -214,6 +215,11 @@ jobs:
           if grep -q "COURsera_ERROR" "$result"; then
             echo "The login window reported an error:"; cat "$result"; exit 1
           fi
+          # The app finds the login by reading the window's cookies; Coursera
+          # sets some even before anyone logs in.
+          echo "Cookies the login window could read:"
+          cat "$SMOKE_TEST_COOKIE_NAMES_FILE"; echo
+          test -s "$SMOKE_TEST_COOKIE_NAMES_FILE"
 
       - name: Keep the screenshots
         if: always()

@@ -34,6 +34,15 @@ def _cookie_value(cookies, name):
     return ""
 
 
+def _write_cookie_names(cookies, path):
+    names = set()
+    for cookie_group in cookies or []:
+        if isinstance(cookie_group, dict):
+            names.update(cookie_group.keys())
+    with open(path, "w", encoding="utf-8") as names_file:
+        names_file.write(" ".join(sorted(names)))
+
+
 def run_webview_login(result_path=None):
     """Run the login window (WebView2 on Windows, WebKit on macOS) in its own process."""
     try:
@@ -51,15 +60,20 @@ def run_webview_login(result_path=None):
 
         from ..services.general import check_cauth
 
+        # The release workflow checks that cookies can be read from the window,
+        # without a real login: it gets the cookie names (never their values).
+        cookie_names_file = os.environ.get("SMOKE_TEST_COOKIE_NAMES_FILE")
+
         def watch_for_login(login_window):
             # The window keeps its cookies between runs, so it may still hold
             # an expired login. Wait until Coursera accepts the cookie.
             rejected = set()
             while True:
                 try:
-                    cauth_cookie = _cookie_value(
-                        login_window.get_cookies(), "CAUTH"
-                    )
+                    cookies = login_window.get_cookies()
+                    if cookie_names_file:
+                        _write_cookie_names(cookies, cookie_names_file)
+                    cauth_cookie = _cookie_value(cookies, "CAUTH")
                     if cauth_cookie and cauth_cookie not in rejected:
                         if check_cauth(cauth_cookie) is False:
                             rejected.add(cauth_cookie)
