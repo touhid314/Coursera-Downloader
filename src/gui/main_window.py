@@ -748,7 +748,8 @@ class MainWindow(QMainWindow):
             if self.localdb.read('show_update_prompt') != 'false':
                 self.show_update_message.emit(latest_version, latest_version_build_url, update_msg)
             else:
-                self.footer_msg = self.footer_msg + f'   * Update available. <a href="{latest_version_build_url}">Click to update.</a>'
+                update_url = general.update_page_url(latest_version_build_url)
+                self.footer_msg = self.footer_msg + f'   * Update available. <a href="{update_url}">Click to update.</a>'
                 self.footer_label.setText(self.footer_msg)
 
     def display_update_message(self, latest_version, latest_version_build_url=None, update_msg=None):
@@ -770,7 +771,9 @@ class MainWindow(QMainWindow):
 
         clicked = msg_box.clickedButton()
 
-        if clicked == update_btn and latest_version_build_url:
+        if clicked == update_btn and sys.platform == "darwin":
+            self.start_macos_update()
+        elif clicked == update_btn and latest_version_build_url:
             webbrowser.open(latest_version_build_url)
 
         elif clicked == dont_show_again_btn:
@@ -779,6 +782,19 @@ class MainWindow(QMainWindow):
         
         # TODO: add do not show again checkbox
         # TODO: maybe close the app when update button is clicked
+
+    def start_macos_update(self):
+        """Copy the install command and open Terminal, where the user runs it."""
+        QApplication.clipboard().setText(general.MACOS_INSTALL_COMMAND)
+        QProcess.startDetached("open", ["-a", "Terminal"])
+        QMessageBox.information(
+            self,
+            "Update Coursera Downloader",
+            "The update command has been copied, and Terminal is opening.\n\n"
+            "In Terminal, paste the command (Command+V) and press Return. "
+            "It closes this app, installs the new version and opens it.\n\n"
+            f"The command:\n{general.MACOS_INSTALL_COMMAND}",
+        )
 
     def show_notification(self, notification):
         """

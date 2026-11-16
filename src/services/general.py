@@ -150,6 +150,20 @@ def get_default_browser():
 
 
 # macOS application names of the supported browsers.
+# Installs or updates the Mac app (see install-macos.sh). The update URL kept
+# in the remote database is the Windows installer, so Macs use this instead.
+MACOS_INSTALL_COMMAND = (
+    "curl -fsSL https://raw.githubusercontent.com/touhid314/Coursera-Downloader"
+    "/main/install-macos.sh | bash"
+)
+MACOS_INSTALL_PAGE = "https://coursera-downloader.rf.gd/thankyou.html?os=mac"
+
+
+def update_page_url(build_url):
+    """Where the app's update link should go on this system."""
+    return MACOS_INSTALL_PAGE if sys.platform == "darwin" else build_url
+
+
 MACOS_BROWSER_APPS = {
     "firefox": "Firefox",
     "brave": "Brave Browser",

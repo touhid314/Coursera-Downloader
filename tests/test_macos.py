@@ -91,3 +91,21 @@ class MacIconTests(TestCase):
             self.assertTrue(mac_paths.ICON_FILE.endswith("icon.png"))
             self.assertTrue(os.path.isfile(mac_paths.ICON_FILE))
         importlib.reload(paths)
+
+
+class MacUpdateTests(TestCase):
+    EXE = "https://github.com/x/releases/download/v9/Installer.exe"
+
+    def test_mac_update_link_goes_to_the_mac_install_page(self):
+        with mock.patch.object(sys, "platform", "darwin"):
+            self.assertEqual(general.update_page_url(self.EXE), general.MACOS_INSTALL_PAGE)
+
+    def test_windows_update_link_is_the_installer(self):
+        with mock.patch.object(sys, "platform", "win32"):
+            self.assertEqual(general.update_page_url(self.EXE), self.EXE)
+
+    def test_install_command_matches_the_script_and_readme(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for name in ("install-macos.sh", "README.md"):
+            with open(os.path.join(root, name), encoding="utf-8") as f:
+                self.assertIn(general.MACOS_INSTALL_COMMAND, f.read(), name)
